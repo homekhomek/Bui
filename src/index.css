@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "Waloh";
+  src: url("/fonts/waloh.ttf") format("truetype");
+  font-display: block;
+}
+
+@font-face {
+  font-family: "Marker2";
+  src: url("/fonts/marker2.ttf") format("truetype");
+  font-display: block;
+}
+
+/*
+  Saccharide palette — https://lospec.com/palette-list/saccharide
+  These are the ONLY colors in the project. Tailwind's default colors are
+  disabled, so only these names work in classes, e.g. bg-dusk, text-white.
+*/
+@theme {
+  /* Fonts: font-body (Waloh, main) and font-heading (Marker2) */
+  --font-body: "Waloh", sans-serif;
+  --font-heading: "Marker2", sans-serif;
+
+  /*
+    Text sizes: values come from TEXT_SIZES in data.js (set as --size-* at startup
+    in main.jsx). Tailwind's default sizes are disabled; only these exist.
+  */
+  --text-*: initial;
+  --text-base: var(--size-base);
+  --text-lg: var(--size-lg);
+  --text-xl: var(--size-xl);
+  --text-2xl: var(--size-2xl);
+  --text-3xl: var(--size-3xl);
+  --text-4xl: var(--size-4xl);
+  --text-5xl: var(--size-5xl);
+  --text-6xl: var(--size-6xl);
+  --text-7xl: var(--size-7xl);
+  --text-8xl: var(--size-8xl);
+
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  --color-mauve: #c09dc3;
+  --color-pink: #ebaebc;
+  --color-peach: #ffcabb;
+  --color-cream: #ffe5ba;
+  --color-sage: #c8dcbe;
+  --color-mint: #a0cac2;
+  --color-teal: #87afbb;
+  --color-sky: #9dccd7;
+  --color-ice: #c3deeb;
+  --color-cornflower: #a6c7e7;
+  --color-blue: #97abd4;
+  --color-slate: #8b8fb0;
+  --color-lavender: #b5a5d3;
+  --color-orchid: #e1b6db;
+  --color-rose: #ffcbd7;
+  --color-blush: #ffe8dc;
+  --color-shell: #f4d2cd;
+  --color-dusty: #e2b7be;
+  --color-plum: #c19caf;
+  --color-dusk: #7d7390;
+  --color-lilac: #ada3b9;
+  --color-mist: #cbbfcf;
+  --color-haze: #e5d9e1;
+  --color-white: #fff7f0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  background-color: var(--color-white);
+  color: var(--color-dusk);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+}
