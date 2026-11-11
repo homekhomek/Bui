@@ -1,11 +1,20 @@
 // Edit-phase loadout rules. Pure functions, no React.
 //
-// Loadout:  { fighters: [{ fighter, equipment: [equip], nodes: [node] }], floating: [float] }
+// Loadout:  { fighters: [{ template, maxEquipment, equipment: [equip], nodes: [node] }], floating: [float] }
+//           template = a FIGHTER_TEMPLATES id; maxEquipment starts at the
+//           template's and can grow during a run
 // equip:    { uid, def }                equipment; its index is its row
-// node:     { uid, def, level, x, y }   placed in a fighter's inventory grid
-// float:    { uid, kind, def, level?, zone }   not in any grid, "floating in the ether"
-//           kind 'node' or 'equipment'
-//           zone 'offer'    = the random picks above the fighter
+// node:     { uid, def, level, extra?, x, y }   placed in a fighter's inventory grid
+//           extra = effects this one node has gained on top of its type's
+// float:    { uid, kind, def, level?, extra?, zone, origin? }   not in any grid, "floating in the ether"
+//           kind 'node', 'equipment' or 'effect' ({ uid, kind: 'effect', effect, zone }:
+//           an effect to drag onto a node, which gains it)
+//           zone 'offer'    = things gained, above the fighter
+//           zone 'loot'     = things an encounter offers, shown in it; whatever
+//                             isn't taken goes away when the encounter ends
+//           zone 'choice'   = take one: placing one (or upgrading with it) removes the rest
+//           zone 'slot'     = the node dragged into an encounter's slot; origin =
+//                             { area, x, y } where it came from, to go back to
 //           zone 'overflow' = bumped / removed nodes, to the right of the fighter
 // area:     a fighter index (number) or 'float'
 //
@@ -13,7 +22,7 @@
 // stay wherever they fit. Gravity only applies once the battle starts.
 // Anything still floating is destroyed when a battle starts.
 
-import { EQUIPMENT, EXPLORE, FIGHTERS, NODES } from '../data.js';
+import { FIGHTER_TEMPLATES, RARITIES } from '../data.js';
 import { canUpgrade } from './effects.js';
 import { cellsAt, fits, rowWidths } from './inventory.js';
 
@@ -23,36 +32,30 @@ const uid = () => `e${nextUid++}`;
 export function createLoadout(team) {
   return {
     fighters: team.map((f) => ({
-      fighter: f.fighter,
+      template: f.template,
+      maxEquipment: f.maxEquipment ?? FIGHTER_TEMPLATES[f.template].maxEquipment,
       equipment: f.equipment.map((def) => ({ uid: uid(), def })),
-      nodes: f.nodes.map(({ node, level = 1, x, y }) => ({ uid: uid(), def: node, level, x, y })),
+      nodes: f.nodes.map(({ node, level = 1, extra, x, y }) => ({ uid: uid(), def: node, level, extra, x, y })),
     })),
     floating: [],
   };
 }
 
-const pick = (obj) => {
-  const keys = Object.keys(obj);
-  return keys[Math.floor(Math.random() * keys.length)];
-};
-
-// Random nodes and equipment offered at the start of an explore visit.
-export function rollOffer(loadout) {
-  const nodes = Array.from({ length: EXPLORE.offerCount }, () => ({
-    uid: uid(),
-    kind: 'node',
-    def: pick(NODES),
-    level: 1,
-    zone: 'offer',
-  }));
-  const equipment = Array.from({ length: EXPLORE.equipmentOfferCount }, () => ({
-    uid: uid(),
-    kind: 'equipment',
-    def: pick(EQUIPMENT),
-    zone: 'offer',
-  }));
-  return { ...loadout, floating: [...loadout.floating, ...equipment, ...nodes] };
+// One random entry of a table (NODES, EQUIPMENT, ENCOUNTERS, or a list of
+// entries): first a rarity, by weight (only rarities the table has entries
+// of), then an entry of that rarity. Returns its id.
+export function pickByRarity(rng, table) {
+  const entries = Array.isArray(table) ? table : Object.values(table);
+  const rarities = Object.values(RARITIES).filter((r) => entries.some((e) => e.rarity === r.id));
+  const rarity = rng.weighted(rarities, (r) => r.weight);
+  return rng.pick(entries.filter((e) => e.rarity === rarity.id)).id;
 }
+
+// New floating things (not in any grid yet), for encounters to hand out.
+export const floatingNode = (def, zone) => ({ uid: uid(), kind: 'node', def, level: 1, zone });
+export const floatingEquipment = (def, zone) => ({ uid: uid(), kind: 'equipment', def, zone });
+export const floatingEffect = (effect, zone) => ({ uid: uid(), kind: 'effect', effect, zone });
+export const addFloating = (loadout, items) => ({ ...loadout, floating: [...loadout.floating, ...items] });
 
 // Battle start: everything still floating is destroyed.
 export function clearFloating(loadout) {
@@ -62,9 +65,10 @@ export function clearFloating(loadout) {
 // Loadout -> battle team format.
 export function loadoutToTeam(loadout) {
   return loadout.fighters.map((f) => ({
-    fighter: f.fighter,
+    template: f.template,
+    maxEquipment: f.maxEquipment,
     equipment: f.equipment.map((e) => e.def),
-    nodes: f.nodes.map((n) => ({ node: n.def, level: n.level, x: n.x, y: n.y })),
+    nodes: f.nodes.map((n) => ({ node: n.def, level: n.level, extra: n.extra, x: n.x, y: n.y })),
   }));
 }
 
@@ -85,10 +89,15 @@ export function overlapping(loadout, area, uid, def, x, y) {
   );
 }
 
-// Take node `uid` out of wherever it is. Returns [node, area].
+// Take node `uid` out of wherever it is. Returns [node, area]. Taking one
+// 'choice' node claims it: the other choices go away.
 function take(loadout, uid) {
   const i = loadout.floating.findIndex((n) => n.uid === uid);
-  if (i >= 0) return [loadout.floating.splice(i, 1)[0], 'float'];
+  if (i >= 0) {
+    const [node] = loadout.floating.splice(i, 1);
+    if (node.zone === 'choice') loadout.floating = loadout.floating.filter((n) => n.zone !== 'choice');
+    return [node, 'float'];
+  }
   for (const [a, f] of loadout.fighters.entries()) {
     const j = f.nodes.findIndex((n) => n.uid === uid);
     if (j >= 0) return [f.nodes.splice(j, 1)[0], a];
@@ -96,12 +105,12 @@ function take(loadout, uid) {
   return [null, null];
 }
 
-const toFloat = ({ uid, def, level }, zone) => ({ uid, kind: 'node', def, level, zone });
+const toFloat = ({ uid, def, level, extra }, zone) => ({ uid, kind: 'node', def, level, extra, zone });
 
 // Find a node anywhere in the loadout (inventory or floating).
 export function findNode(loadout, uid) {
   return (
-    loadout.floating.find((n) => n.uid === uid && n.kind !== 'equipment') ??
+    loadout.floating.find((n) => n.uid === uid && n.kind === 'node') ??
     loadout.fighters.flatMap((f) => f.nodes).find((n) => n.uid === uid)
   );
 }
@@ -148,7 +157,7 @@ export function moveNode(loadout, uid, to, x, y) {
   const target = next.fighters[to].nodes;
   const bumped = overlapping(next, to, uid, moving.def, x, y);
   for (const b of bumped) target.splice(target.indexOf(b), 1);
-  target.push({ uid: moving.uid, def: moving.def, level: moving.level, x, y });
+  target.push({ uid: moving.uid, def: moving.def, level: moving.level, extra: moving.extra, x, y });
 
   for (const b of bumped) {
     const spot = nearestSpot(widths, target, b);
@@ -176,7 +185,7 @@ export function dropToFloat(loadout, uid) {
 // Equipment
 // ---------------------------------------------------------------------------
 
-export const maxEquipment = (loadout, area) => FIGHTERS[loadout.fighters[area].fighter].maxEquipment;
+export const maxEquipment = (loadout, area) => loadout.fighters[area].maxEquipment;
 
 // Where equipment `uid` is: { area, index } (index into floating or equipment).
 export function locateEquipment(loadout, uid) {
@@ -289,5 +298,69 @@ export function dropEquipmentToFloat(loadout, uid) {
   const [{ e }] = rows.splice(src.index, 1);
   next.floating.push({ uid: e.uid, kind: 'equipment', def: e.def, zone: 'overflow' });
   relayout(next, src.area, rows);
+  return next;
+}
+
+// ---------------------------------------------------------------------------
+// Encounter helpers
+// ---------------------------------------------------------------------------
+
+// Change node `uid` (wherever it is): fn(node) returns the fields to change.
+export function updateNode(loadout, uid, fn) {
+  const next = structuredClone(loadout);
+  const node = findNode(next, uid);
+  if (node) Object.assign(node, fn(node));
+  return next;
+}
+
+// The node in the encounter slot, if any.
+export const slotNode = (loadout) => loadout.floating.find((n) => n.zone === 'slot');
+
+// Put node `uid` into the encounter slot (whatever was there goes back first).
+export function putInSlot(loadout, uid) {
+  const next = structuredClone(returnSlot(loadout));
+  const node = findNode(next, uid);
+  if (!node) return loadout;
+  const origin = node.zone ? null : next.fighters.findIndex((f) => f.nodes.includes(node));
+  const [taken] = take(next, uid);
+  next.floating.push({ ...toFloat(taken, 'slot'), origin: origin === null ? null : { area: origin, x: node.x, y: node.y } });
+  return next;
+}
+
+// The slotted node goes back to where it came from, else the nearest free
+// spot, else floats off to the right.
+export function returnSlot(loadout) {
+  const node = slotNode(loadout);
+  if (!node) return loadout;
+  const next = structuredClone(loadout);
+  next.floating = next.floating.filter((n) => n.zone !== 'slot');
+  const { origin } = node;
+  if (origin && next.fighters[origin.area]) {
+    const widths = areaWidths(next, origin.area);
+    const nodes = next.fighters[origin.area].nodes;
+    const placed = { uid: node.uid, def: node.def, level: node.level, extra: node.extra, x: origin.x, y: origin.y };
+    const spot = fits(widths, nodes, placed, origin.x, origin.y) ? origin : nearestSpot(widths, nodes, placed);
+    if (spot) {
+      nodes.push({ ...placed, x: spot.x, y: spot.y });
+      return next;
+    }
+  }
+  next.floating.push(toFloat(node, 'overflow'));
+  return next;
+}
+
+// Untaken loot and choices go away (the encounter offering them is over).
+export const clearEncounterItems = (loadout) => ({
+  ...loadout,
+  floating: loadout.floating.filter((n) => n.zone !== 'choice' && n.zone !== 'loot'),
+});
+
+// Drop floating effect `effectUid` onto node `nodeUid`: the node gains the
+// effect (as an extra effect) and the floating effect is used up.
+export function applyEffect(loadout, effectUid, nodeUid) {
+  const item = loadout.floating.find((n) => n.uid === effectUid && n.kind === 'effect');
+  if (!item || !findNode(loadout, nodeUid)) return null;
+  const next = updateNode(loadout, nodeUid, (n) => ({ extra: [...(n.extra ?? []), { ...item.effect }] }));
+  next.floating = next.floating.filter((n) => n.uid !== effectUid);
   return next;
 }

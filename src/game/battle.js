@@ -6,7 +6,9 @@
 // The simulation jumps straight from one node firing to the next, computing
 // the exact moment each one fills. No ticks.
 //
-// runBattle(teams) returns { initial, events, winner, duration }. Every change
+// runBattle(teams, seed) returns { seed, initial, events, winner, duration }.
+// Anything random in a battle must come from its rng (seeded by `seed`, see
+// random.js), so the same teams and seed always give the same battle. Every change
 // is an event applied through applyEvent(). The simulation uses the same
 // reducer as the visual queue, so playback always matches the result.
 //
@@ -15,15 +17,18 @@
 //   trigger { fighter, node }                  node full: charge resets to 0
 //   move    { fighter, node, x, spawn? }       node slid left; spawn = used node
 //                                              re-entering from the right
-//   damage  { source, target, hp, shield }     hp / shield actually lost
-//   shield  { target, amount }
+//   damage  { source, target, hp }             hp actually lost
+//   status  { target, status, amount }         status counters gained (+) or
+//                                              used up (-); see STATUSES
 //   heal    { target, amount }                 hp actually restored
 //   defeat  { fighter }
 //   end     { winner }                         'player' | 'enemy' | 'draw'
 
-import { BATTLE, EQUIPMENT, FIGHTERS, NODES } from '../data.js';
-import { effectValue } from './effects.js';
+import { BATTLE, EQUIPMENT, FIGHTER_TEMPLATES, KEYWORDS, NODES } from '../data.js';
+import { effectValue, nodeEffects } from './effects.js';
+import { maxHp } from './fighter.js';
 import { settle, spawnX, touchingRows, unboundedWidths } from './inventory.js';
+import { createRng } from './random.js';
 
 const EPSILON = 1e-9; // nodes filling within this many seconds fire together
 
@@ -31,21 +36,26 @@ export function createBattleState(teams) {
   const fighters = [];
   for (const team of ['player', 'enemy']) {
     teams[team].forEach((loadout, i) => {
-      const def = FIGHTERS[loadout.fighter];
+      const def = FIGHTER_TEMPLATES[loadout.template];
       const id = `${team}-${i}`;
+      const maxEquipment = loadout.maxEquipment ?? def.maxEquipment;
+      const equipment = loadout.equipment.slice(0, maxEquipment);
+      const hp = maxHp(def.id, equipment);
       fighters.push({
         id,
         def: def.id,
         team,
-        hp: def.maxHp,
-        maxHp: def.maxHp,
-        shield: 0,
+        hp,
+        maxHp: hp,
+        statuses: {}, // status id -> count, e.g. { shield: 5 }; zero counts are removed
         alive: true,
-        equipment: loadout.equipment.slice(0, def.maxEquipment),
+        maxEquipment,
+        equipment,
         nodes: loadout.nodes.map((n, j) => ({
           uid: `${id}-n${j}`,
           def: n.node,
           level: n.level ?? 1,
+          extra: n.extra,
           x: n.x,
           y: n.y,
           charge: 0,
@@ -91,13 +101,15 @@ export function applyEvent(state, e) {
     }
     case 'damage': {
       const f = fighterById(state, e.target);
-      f.shield -= e.shield;
       f.hp -= e.hp;
       break;
     }
-    case 'shield':
-      fighterById(state, e.target).shield += e.amount;
+    case 'status': {
+      const { statuses } = fighterById(state, e.target);
+      statuses[e.status] = (statuses[e.status] ?? 0) + e.amount;
+      if (statuses[e.status] <= 0) delete statuses[e.status];
       break;
+    }
     case 'heal':
       fighterById(state, e.target).hp += e.amount;
       break;
@@ -110,7 +122,8 @@ export function applyEvent(state, e) {
   }
 }
 
-export function runBattle(teams) {
+export function runBattle(teams, seed) {
+  const rng = createRng(seed); // random effects (none yet) must draw from this
   const initial = createBattleState(teams);
   const state = structuredClone(initial);
   const events = [];
@@ -146,22 +159,25 @@ export function runBattle(teams) {
     }
   };
 
-  // Run one node effect. Keywords: attack, shield, heal.
+  // Run one node effect. Keywords: attack, shield, heal (see KEYWORDS).
   const resolveEffect = (f, effect, level) => {
     const value = effectValue(effect, level);
     if (effect.keyword === 'attack') {
       const target = state.fighters.find((o) => o.team !== f.team && o.alive);
       if (!target) return;
-      const shield = Math.min(target.shield, value);
-      const hp = Math.min(target.hp, value - shield);
-      emit({ type: 'damage', source: f.id, target: target.id, hp, shield });
+      // Shield counters block damage first, one each, and are used up.
+      const blocked = Math.min(target.statuses.shield ?? 0, value);
+      if (blocked > 0) emit({ type: 'status', target: target.id, status: 'shield', amount: -blocked });
+      const hp = Math.min(target.hp, value - blocked);
+      emit({ type: 'damage', source: f.id, target: target.id, hp });
       if (target.hp <= 0) {
         emit({ type: 'defeat', fighter: target.id });
         updateRates(target); // a defeated fighter stops charging
         checkWinner();
       }
-    } else if (effect.keyword === 'shield') {
-      emit({ type: 'shield', target: f.id, amount: value });
+    } else if (KEYWORDS[effect.keyword].status) {
+      // Status keywords (shield, ...): gain that many counters.
+      if (value > 0) emit({ type: 'status', target: f.id, status: KEYWORDS[effect.keyword].status, amount: value });
     } else if (effect.keyword === 'heal') {
       const amount = Math.min(value, f.maxHp - f.hp);
       if (amount > 0) emit({ type: 'heal', target: f.id, amount });
@@ -199,7 +215,7 @@ export function runBattle(teams) {
       for (const n of ready) {
         if (!f.alive || state.winner) break;
         emit({ type: 'trigger', fighter: f.id, node: n.uid });
-        for (const effect of NODES[n.def].effects) {
+        for (const effect of nodeEffects(n)) {
           if (state.winner) break;
           resolveEffect(f, effect, n.level);
         }
@@ -211,5 +227,5 @@ export function runBattle(teams) {
     }
   }
 
-  return { initial, events, winner: state.winner, duration: state.time };
+  return { seed, initial, events, winner: state.winner, duration: state.time };
 }

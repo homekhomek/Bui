@@ -1,8 +1,8 @@
 import { useId, useLayoutEffect, useMemo, useRef } from 'react';
-import { ANIM, EDIT, EQUIPMENT, INVENTORY, NODES, STROKE_PX } from '../data.js';
+import { ANIM, EDIT, EQUIPMENT, INVENTORY, NODES, SELECT, STROKE_PX } from '../data.js';
 import { nodeOutlinePath } from './nodeOutline.js';
 import { useEdit, useSlide } from './editContext.js';
-import { useTooltip } from './tooltip/Tooltip.jsx';
+import { useSelectable, useTooltip } from './tooltip/Tooltip.jsx';
 import { equipmentIcon } from './assets.js';
 
 const { cellPx, gapPx, tileRadiusPx: radius, equipmentBorderPx, unchargedOpacity } = INVENTORY;
@@ -11,11 +11,19 @@ export const STEP = cellPx + gapPx;
 const color = (name) => `var(--color-${name})`;
 const cell = { width: cellPx, height: cellPx };
 
+// Inline style for the selection border's shrink-on animation.
+const selectAnim = {
+  '--select-from': SELECT.fromScale,
+  animation: `select-in ${SELECT.animMs}ms ${ANIM.ease}`,
+};
+
 // A node drawn as one SVG shape: a single continuous outline, gaps between its
 // own tiles filled in. Only the shape itself is hoverable, not its bounding box.
 // charge defaults to full (no wash-out), as in the edit phase.
 // Upgraded nodes show one pip per level; the node pops when its level rises.
-export function NodeShape({ def, level = 1, uid, charge = def.maxCharge, highlight = false, interactive = true, onPointerDown }) {
+// tooltip=false keeps it clickable without a tooltip (admin: unsaved nodes).
+// extra: effects this one node has gained (shown in its tooltip).
+export function NodeShape({ def, level = 1, extra, uid, charge = def.maxCharge, highlight = false, interactive = true, tooltip: showTooltip = true, onPointerDown }) {
   const id = `node-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const svgRef = useRef(null);
   const lastLevel = useRef(level);
@@ -26,7 +34,9 @@ export function NodeShape({ def, level = 1, uid, charge = def.maxCharge, highlig
   const height = rows * STEP - gapPx;
   const unchargedPx = height * (1 - charge / def.maxCharge);
   const [px, py] = def.shape[0];
-  const tooltip = useTooltip('node', { def: def.id, level });
+  const tooltip = useTooltip('node', { def: def.id, level, extra });
+  const sel = useSelectable('node', { def: def.id, level, extra });
+  const selectable = interactive && showTooltip;
 
   useLayoutEffect(() => {
     if (level > lastLevel.current) {
@@ -81,7 +91,21 @@ export function NodeShape({ def, level = 1, uid, charge = def.maxCharge, highlig
             strokeWidth={STROKE_PX}
           />
         ))}
+      {/* Selection border, over the node's own */}
+      {selectable && sel.selected && (
+        <path
+          d={outline}
+          fillRule="evenodd"
+          fill="none"
+          stroke={color('dusk')}
+          strokeWidth={SELECT.borderPx}
+          strokeLinejoin="round"
+          pointerEvents="none"
+          style={{ ...selectAnim, transformBox: 'fill-box', transformOrigin: 'center' }}
+        />
+      )}
       <path
+        ref={sel.ref}
         d={outline}
         fillRule="evenodd"
         fill="transparent"
@@ -90,7 +114,8 @@ export function NodeShape({ def, level = 1, uid, charge = def.maxCharge, highlig
         style={{ touchAction: 'none' }}
         data-uid={uid}
         onPointerDown={onPointerDown}
-        {...(interactive ? tooltip : {})}
+        onClick={selectable ? sel.select : undefined}
+        {...(selectable ? tooltip : {})}
       />
     </svg>
   );
@@ -128,9 +153,10 @@ function GridNode({ node, area, colOffset, animMs }) {
       <NodeShape
         def={NODES[node.def]}
         level={node.level}
+        extra={node.extra}
         uid={node.uid}
         charge={node.charge}
-        highlight={edit?.hover?.upgrade === node.uid}
+        highlight={edit?.hover?.upgrade === node.uid || edit?.hover?.applyTo === node.uid}
         onPointerDown={edit ? (e) => edit.startDrag(e, node, area, slideRef.current) : undefined}
       />
     </div>
@@ -184,27 +210,38 @@ export function NodeGrid({ area, widths, rows = widths.length, colOffset = 0, no
 
 // One piece of equipment (heavy double border). Used in the inventory column,
 // floating in the ether, and as the piece being dragged.
-export function EquipmentPiece({ def, highlight = false, interactive = true, onPointerDown }) {
+// data overrides the data.js entry (admin previews of unsaved equipment).
+export function EquipmentPiece({ def, data = EQUIPMENT[def], highlight = false, interactive = true, onPointerDown }) {
   const tooltip = useTooltip('equipment', { id: def });
+  const sel = useSelectable('equipment', { id: def });
   return (
     <div
+      ref={sel.ref}
       {...(interactive ? tooltip : {})}
-      className={`rounded-lg border-double border-dusk ${interactive ? 'cursor-pointer' : 'pointer-events-none'}`}
+      onClick={interactive ? sel.select : undefined}
+      className={`relative rounded-lg border-double border-dusk ${interactive ? 'cursor-pointer' : 'pointer-events-none'}`}
       style={{
         ...cell,
         borderWidth: equipmentBorderPx,
-        backgroundColor: color(EQUIPMENT[def].color),
+        backgroundColor: color(data.color),
         touchAction: 'none',
         outline: highlight ? `${EDIT.upgradeOutlinePx}px solid ${color('mint')}` : undefined,
       }}
       onPointerDown={onPointerDown}
     >
-      {EQUIPMENT[def].icon && (
+      {data.icon && (
         <img
-          src={equipmentIcon(EQUIPMENT[def].icon)}
+          src={equipmentIcon(data.icon)}
           alt=""
           draggable={false}
           className="block w-full h-full pointer-events-none"
+        />
+      )}
+      {/* Selection border, over the piece's own (outer edge to outer edge) */}
+      {interactive && sel.selected && (
+        <div
+          className="absolute rounded-lg border-dusk pointer-events-none"
+          style={{ inset: -equipmentBorderPx, borderWidth: SELECT.borderPx, ...selectAnim }}
         />
       )}
     </div>

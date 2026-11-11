@@ -14,10 +14,12 @@
 
 /*
   Saccharide palette — https://lospec.com/palette-list/saccharide
-  These are the ONLY colors in the project. Tailwind's default colors are
+  These are the ONLY colors in the project. `static` makes Tailwind always
+  output every variable (game data uses var(--color-*) directly, which Tailwind
+  cannot see). Tailwind's default colors are
   disabled, so only these names work in classes, e.g. bg-dusk, text-white.
 */
-@theme {
+@theme static {
   /* Fonts: font-body (Waloh, main) and font-heading (Marker2) */
   --font-body: "Waloh", sans-serif;
   --font-heading: "Marker2", sans-serif;
@@ -133,6 +135,101 @@ button:disabled {
   }
   50% {
     translate: 0 calc(var(--bob) * -1);
+  }
+}
+
+/* Browser-drawn colors (sliders, checkboxes, focus rings, text selection)
+   default to the browser's blue; keep them in the palette too. */
+:root {
+  accent-color: var(--color-dusk);
+  scrollbar-color: var(--color-mist) transparent;
+}
+
+::placeholder {
+  color: var(--color-lilac);
+  opacity: 1;
+}
+
+option {
+  background-color: var(--color-white);
+  color: var(--color-dusk);
+}
+
+/* Native control parts browsers draw in their own black / grey: replaced with
+   palette-colored versions, or hidden. Dusk is the darkest color anywhere. */
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button,
+input[type="search"]::-webkit-search-cancel-button {
+  appearance: none;
+  margin: 0;
+}
+
+select {
+  appearance: none;
+  padding-right: 1.5em;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-dusk) 50%),
+    linear-gradient(135deg, var(--color-dusk) 50%, transparent 50%);
+  background-position:
+    calc(100% - 0.8em) 50%,
+    calc(100% - 0.5em) 50%;
+  background-size: 0.3em 0.3em;
+  background-repeat: no-repeat;
+}
+
+input[type="range"] {
+  appearance: none;
+  background: transparent;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 0.3em;
+  border-radius: 9999px;
+  background: var(--color-mist);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 0.3em;
+  border-radius: 9999px;
+  background: var(--color-mist);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 0.8em;
+  height: 0.8em;
+  margin-top: -0.25em;
+  border-radius: 9999px;
+  background: var(--color-dusk);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 0.8em;
+  height: 0.8em;
+  border: none;
+  border-radius: 9999px;
+  background: var(--color-dusk);
+}
+
+:focus-visible {
+  outline: var(--stroke) solid var(--color-dusk);
+}
+
+::selection {
+  background-color: var(--color-mist);
+  color: var(--color-dusk);
+}
+
+/* Selection border: starts at --select-from times the element's size and
+   shrinks onto it (see SELECT in data.js). */
+@keyframes select-in {
+  from {
+    scale: var(--select-from);
   }
 }
 

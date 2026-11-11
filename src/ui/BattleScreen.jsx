@@ -18,8 +18,9 @@ function Button({ active, ...props }) {
 
 // Battle phase. The whole battle is simulated instantly up front; the visual
 // queue then plays it back at whatever speed the player picks.
-export default function BattleScreen({ teams, onBack }) {
-  const battle = useMemo(() => runBattle(teams), [teams]);
+// seed: the battle's own seed (derived from the run seed), for random effects.
+export default function BattleScreen({ teams, seed, onBack }) {
+  const battle = useMemo(() => runBattle(teams, seed), [teams, seed]);
   const vq = useVisualQueue(battle);
   const animMs = PLAYBACK.moveAnimMs / vq.speed;
   // Charge is drawn at the exact playback time, so it fills smoothly.
@@ -38,8 +39,9 @@ export default function BattleScreen({ teams, onBack }) {
         </div>
         <span className="font-heading text-2xl">{t('vs')}</span>
         <div className="flex flex-col gap-4">
+          {/* Enemies stand on the right, facing left toward the player */}
           {side('enemy').map((f) => (
-            <FighterCard key={f.id} fighter={f} animMs={animMs} />
+            <FighterCard key={f.id} fighter={f} animMs={animMs} flip />
           ))}
         </div>
       </div>
@@ -66,8 +68,9 @@ export default function BattleScreen({ teams, onBack }) {
         ))}
       </div>
 
-      <button onClick={onBack} className="px-8 py-2 rounded-lg bg-rose hover:bg-dusty">
-        {t('back')}
+      {/* The result is already decided, so the player can move on any time */}
+      <button onClick={() => onBack(battle.winner)} className="px-8 py-2 rounded-lg bg-rose hover:bg-dusty">
+        {t('continue')}
       </button>
     </div>
   );

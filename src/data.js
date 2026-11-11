@@ -3,12 +3,12 @@
 // Components and logic should import values from here instead of hardcoding them.
 
 export const GAME = {
-  version: '0.1.0',
+  version: "0.1.0",
 };
 
 // The one stroke width for the whole app: borders, outlines, SVG strokes.
 // Use STROKE_PX in code, or the border-stroke class in markup.
-export const STROKE_PX = 2;
+export const STROKE_PX = 3;
 
 export const LAYOUT = {
   maxWidth: 1280, // px, width of the centered game area (fits two max-size fighters)
@@ -24,7 +24,7 @@ export const BATTLE = {
 
 // Easing for all node slides: starts fast, settles quickly (snappy).
 export const ANIM = {
-  ease: 'cubic-bezier(0.16, 1, 0.3, 1)',
+  ease: "cubic-bezier(0.16, 1, 0.3, 1)",
 };
 
 // Visual queue playback
@@ -63,6 +63,22 @@ export const METRIC = {
   paddingYPx: 2,
 };
 
+// Status counters on fighters in battle (icon + count, see STATUSES)
+export const STATUS_COUNTER = {
+  iconPx: 28,
+  paddingXPx: 6,
+  paddingYPx: 2,
+  gapPx: 4,
+};
+
+// Selecting a node or piece of equipment (click it): a border drawn over its
+// own, which starts at fromScale times its size and quickly shrinks onto it.
+export const SELECT = {
+  borderPx: 6, // exception to STROKE_PX: the selection border
+  fromScale: 1.25,
+  animMs: 140,
+};
+
 // App-wide tooltips (see src/ui/tooltip)
 export const TOOLTIP = {
   gapPx: 12, // space between the hovered thing and its tooltip
@@ -73,19 +89,47 @@ export const TOOLTIP = {
 
 // Explore / edit phase
 export const EXPLORE = {
-  offerCount: 3, // random nodes floating above the fighter each visit
-  equipmentOfferCount: 1, // random equipment offered alongside them
-  bobMs: 2400, // floating nodes gently bob; one full cycle
+  bobMs: 2400, // floating things (nodes, equipment, encounter cards) gently bob; one full cycle
   bobPx: 6, // bob height
+  bobStagger: 1 / 3, // neighbours bob this fraction of a cycle apart
 };
 
 export const EDIT = {
   moveAnimMs: 130, // drop / bump slide animation length
+  dragThresholdPx: 5, // pointer travel before a press becomes a drag (less = a click, which selects)
   ghostOpacity: 0.3, // opacity of a node's original spot while it is being dragged
   previewOpacity: 0.5, // opacity of the drop preview highlight
   upgradeOutlinePx: 5, // exception to STROKE_PX: highlight around a node a drop would upgrade
   popScale: 1.15, // a node briefly grows when it levels up
   popMs: 220,
+};
+
+// Admin dashboard (dev only, never in player builds; see src/admin)
+export const ADMIN = {
+  maxWidthPx: 1800, // the admin page may use more of the screen than the game
+  explorerWidthPx: 440, // the entity explorer (search + list) column
+  explorerHeightPx: 640, // the scrolling list's height
+  thumbPx: 48, // thumbnails in the explorer list
+  thumbMinTiles: 3, // small nodes are drawn as if at least this many tiles across
+  shapeCellPx: 36, // one tile in the shape editor
+  swatchPx: 32, // palette color swatches
+  swatchColumns: 12,
+  flashMs: 1500, // how long "Copied!" stays up
+  newNode: {
+    maxCharge: 10,
+    color: "mint",
+    effect: { keyword: "attack", value: 1, upgradeDelta: 1 },
+  },
+  newEquipment: { nodeSlots: 4, chargeRate: 10, hp: 5, color: "cream" },
+  newTemplate: { baseHp: 10, maxEquipment: 3 },
+};
+
+// Encounter cards and panels (the choices between battles)
+export const ENCOUNTER_UI = {
+  cardWidthPx: 320,
+  panelWidthPx: 480,
+  slotPx: 140, // the box a node is dragged into, for encounters that need one
+  slotPaddingPx: 16,
 };
 
 // ---------------------------------------------------------------------------
@@ -95,130 +139,291 @@ export const EDIT = {
 
 // Hard size limits. No fighter's maxEquipment may exceed maxEquipment, and no
 // equipment's nodeSlots may exceed maxNodeSlots (largest inventory: 6 x 8).
+// No node shape may be wider or taller than maxNodeSize tiles.
 export const LIMITS = {
   maxEquipment: 6,
   maxNodeSlots: 8,
+  maxNodeSize: 8,
 };
 
-// Fighters hold equipment (up to maxEquipment) and nodes.
-export const FIGHTERS = {
-  knight: { id: 'knight', maxHp: 40, maxEquipment: 6, color: 'mint' },
-  brute: { id: 'brute', maxHp: 50, maxEquipment: 3, color: 'plum' },
+// Fighter sprites: SVGs in public/assets/fighters, drawn on a sizeArt x sizeArt
+// canvas on which one node tile is tileArt across. The fighter's body fills the
+// bodyArt x bodyArt square at the bottom middle; the rest of the canvas is room
+// for details that overflow it (drawn, but given no layout space). Sprites are
+// scaled so their tiles match the inventory's node tiles (INVENTORY.cellPx).
+export const SPRITE = {
+  sizeArt: 350,
+  tileArt: 70, // one node tile in art units (also the scale of node art templates)
+  bodyArt: 210,
+  cardOverlapPx: 12, // how far the fighter card overlaps the bottom of the sprite's body (card in front)
+};
+
+// Rarities, from most to least common. Every node and piece of equipment has
+// one. weight = how likely an offer slot is to roll that rarity (relative to the
+// others); color = the palette color of its badge. Name / description:
+// 'rarity.<id>' and 'rarityTip.<id>' in translate.js.
+export const RARITIES = {
+  common: { id: "common", weight: 65, color: "mist" },
+  uncommon: { id: "uncommon", weight: 30, color: "mint" },
+  rare: { id: "rare", weight: 5, color: "lavender" },
 };
 
 // Equipment sits in a column on the left of the inventory. icon (optional) =
 // file name in public/assets/equipment; without one the tile is a plain color. Each piece opens a
-// row of nodeSlots tiles to its right. Nodes touching it (column 0 of its row)
+// row of nodeSlots tiles to its right. rarity = a RARITIES id. Nodes touching it (column 0 of its row)
 // gain chargeRate charge per second (rates from several rows add up).
+// hp is added to the max HP of the fighter it is equipped on. rarity = a RARITIES id.
 export const EQUIPMENT = {
-  sword: { id: 'sword', nodeSlots: 5, chargeRate: 10, color: 'peach' },
-  shield: { id: 'shield', nodeSlots: 5, chargeRate: 10, color: 'sky' },
-  charm: { id: 'charm', nodeSlots: 4, chargeRate: 20, color: 'orchid' },
-  pack: { id: 'pack', nodeSlots: 8, chargeRate: 5, color: 'cream', icon: 'knapsack' },
+  bluefur: {
+    id: "bluefur",
+    nodeSlots: 2,
+    chargeRate: 5,
+    hp: 15,
+    color: "ice",
+    rarity: "common",
+    icon: "bluefur",
+  },
+  redplate: {
+    id: "redplate",
+    nodeSlots: 4,
+    chargeRate: 10,
+    hp: 25,
+    color: "shell",
+    rarity: "uncommon",
+    icon: "redscale",
+  },
+  charm: {
+    id: "charm",
+    nodeSlots: 4,
+    chargeRate: 20,
+    hp: 3,
+    color: "orchid",
+    rarity: "rare",
+  },
+  pack: {
+    id: "pack",
+    nodeSlots: 8,
+    chargeRate: 5,
+    hp: 4,
+    color: "cream",
+    rarity: "uncommon",
+    icon: "knapsack",
+  },
+};
+
+// Status counters: stacks a fighter carries during a battle, shown as the icon
+// (file name in public/assets/effects) with the count. Battle-only: every
+// fighter starts each battle with none. Name / description: 'status.<id>' and
+// 'statusTip.<id>' in translate.js.
+//   shield: each counter blocks 1 damage, and is used up doing so.
+export const STATUSES = {
+  shield: { id: "shield", icon: "shield", color: "ice" },
 };
 
 // Effect keywords. icon = file name in public/assets/effects; color = the
 // palette color its box is tinted (matches the icon's own fill).
+// status (optional) = the status counter the effect gives its own fighter, one
+// counter per point of value.
 export const KEYWORDS = {
-  attack: { id: 'attack', icon: 'attack', color: 'rose' }, // red
-  shield: { id: 'shield', icon: 'shield', color: 'ice' }, // blue
-  heal: { id: 'heal', icon: 'heal', color: 'mint' }, // green
+  attack: { id: "attack", icon: "attack", color: "rose" }, // red
+  shield: { id: "shield", icon: "shield", color: "ice", status: "shield" }, // blue
+  heal: { id: "heal", icon: "heal", color: "sage" }, // green
 };
 
 // Charge is always shown as its symbol, never the word ({charge} in strings).
-export const CHARGE = { icon: 'charge', color: 'cream' };
+export const CHARGE = { icon: "charge", color: "cream" };
+
+// HP is likewise always shown as its symbol ({hp} in strings): the heal icon.
+export const HP = { icon: "heal" };
 
 // Nodes are tetris-like pieces. shape = [x, y] tile offsets from the node's
-// position. At maxCharge the node runs its effects in order, then teleports to
+// position (rarity = a RARITIES id). At maxCharge the node runs its effects in order, then teleports to
 // the far right and slides back left (gravity), joining the back of the queue.
 //
 // effects: what the node does, in order. Each effect is
 //   { keyword, value, upgradeDelta? }
-// keyword: attack (damage the first living enemy), shield (self), heal (self).
+// keyword: attack (damage the first living enemy; shield counters block it),
+// shield (gain that many shield counters), heal (self).
 // value at a given level = value + upgradeDelta * (level - 1).
 // A node with any upgradeDelta can be upgraded by dropping another node of the
 // same type and level onto it.
 export const NODES = {
   slash: {
-    id: 'slash',
+    id: "slash",
     shape: [[0, 0]],
     maxCharge: 10,
-    color: 'pink',
-    effects: [{ keyword: 'attack', value: 3, upgradeDelta: 2 }],
+    color: "pink",
+    rarity: "common",
+    effects: [{ keyword: "attack", value: 3, upgradeDelta: 2 }],
   },
   bash: {
-    id: 'bash',
-    shape: [[0, 0], [1, 0]],
+    id: "bash",
+    shape: [
+      [0, 0],
+      [1, 0],
+    ],
     maxCharge: 18,
-    color: 'dusty',
-    effects: [{ keyword: 'attack', value: 6, upgradeDelta: 3 }],
+    color: "dusty",
+    rarity: "common",
+    effects: [{ keyword: "attack", value: 6, upgradeDelta: 3 }],
   },
   guard: {
-    id: 'guard',
-    shape: [[0, 0], [0, 1]],
+    id: "guard",
+    shape: [
+      [0, 0],
+      [0, 1],
+    ],
     maxCharge: 15,
-    color: 'cornflower',
-    effects: [{ keyword: 'shield', value: 5, upgradeDelta: 3 }],
+    color: "cornflower",
+    rarity: "common",
+    effects: [{ keyword: "shield", value: 5, upgradeDelta: 3 }],
   },
   mend: {
-    id: 'mend',
-    shape: [[0, 0], [1, 0], [0, 1]],
+    id: "mend",
+    shape: [
+      [0, 0],
+      [1, 0],
+      [0, 1],
+    ],
     maxCharge: 25,
-    color: 'sage',
-    effects: [{ keyword: 'heal', value: 6, upgradeDelta: 4 }],
+    color: "sage",
+    rarity: "uncommon",
+    effects: [{ keyword: "heal", value: 6, upgradeDelta: 4 }],
   },
   spin: {
-    id: 'spin',
-    shape: [[0, 0], [1, 0], [2, 0], [1, 1]],
+    id: "spin",
+    shape: [
+      [0, 0],
+      [1, 0],
+      [2, 0],
+      [1, 1],
+    ],
     maxCharge: 30,
-    color: 'lavender',
+    color: "lavender",
+    rarity: "rare",
     effects: [
-      { keyword: 'attack', value: 4, upgradeDelta: 2 },
-      { keyword: 'shield', value: 3, upgradeDelta: 1 },
+      { keyword: "attack", value: 4, upgradeDelta: 2 },
+      { keyword: "shield", value: 3, upgradeDelta: 1 },
     ],
   },
 };
 
-// Placeholder loadouts until the explore/edit phase builds real ones.
-// Node x/y are starting positions in the inventory grid (row y = equipment y).
-export const DEMO_TEAMS = {
-  player: [
-    {
-      fighter: 'knight',
-      equipment: ['sword', 'shield', 'charm', 'pack', 'pack', 'pack'], // max size: 6 rows, up to 8 slots
-      nodes: [
-        { node: 'slash', x: 0, y: 0 },
-        { node: 'bash', x: 1, y: 0 },
-        { node: 'mend', x: 0, y: 1 },
-        { node: 'guard', x: 2, y: 1 },
-      ],
-    },
-  ],
-  enemy: [
-    {
-      fighter: 'brute',
-      equipment: ['sword', 'sword'],
-      nodes: [
-        { node: 'bash', x: 0, y: 0 },
-        { node: 'slash', x: 2, y: 0 },
-        { node: 'bash', x: 0, y: 1 },
-        { node: 'slash', x: 3, y: 1 },
-      ],
-    },
-  ],
+// Fighter templates: every fighter in the game, ready-made with its equipment
+// and nodes. Used for starting builds (RUN.startingTeam) and for enemies
+// (ENEMIES). Name: 'fighter.<id>' in translate.js.
+//   sprite        file name in public/assets/fighters (see SPRITE)
+//   baseHp        the fighter's own HP; each equipped piece adds its hp on top
+//   maxEquipment  how many pieces it can hold (at most LIMITS.maxEquipment)
+//   equipment     starting equipment, top to bottom
+//   nodes         starting nodes; x/y in the inventory grid (row y = equipment y),
+//                 level optional (default 1)
+export const FIGHTER_TEMPLATES = {
+  ant: {
+    id: "ant",
+    sprite: "ant",
+    baseHp: 10,
+    maxEquipment: 4,
+    equipment: ["redplate", "redplate"],
+    nodes: [
+      { node: "bash", x: 0, y: 0 },
+      { node: "bash", x: 2, y: 0 },
+      { node: "bash", x: 2, y: 1 },
+      { node: "bash", x: 0, y: 1 },
+    ],
+  },
+  mite: {
+    id: "mite",
+    sprite: "mite",
+    baseHp: 10,
+    maxEquipment: 2,
+    equipment: ["bluefur"],
+    nodes: [
+      { node: "slash", x: 0, y: 0 },
+      { node: "slash", x: 1, y: 0 },
+    ],
+  },
+};
+
+// Enemies: the teams a battle can be fought against, as fighter template ids.
+// Boss teams (boss: true) are fought every RUN.bossEvery-th battle; the rest
+// are regular. Each run picks its enemies from the seed.
+export const ENEMIES = {
+  mite: { id: "mite", fighters: ["mite"], boss: false },
+  miteBrood: { id: "miteBrood", fighters: ["mite", "mite"], boss: true }, // placeholder boss
+};
+
+// Encounters: the choices between battles. Each is one of the encounter types
+// in src/game/encounters.js (the code that runs it), with that type's params.
+// rarity = a RARITIES id: how likely it is to be offered (by RARITIES weight).
+// Name / description / action button: 'encounter.<id>', 'encounterTip.<id>'
+// and 'encounterAction.<id>' in translate.js; the description can show params
+// as {param}.
+export const ENCOUNTERS = {
+  lootArea: {
+    id: "lootArea",
+    type: "lootNodes",
+    rarity: "common",
+    params: { count: 3 },
+  },
+  lootCarcass: {
+    id: "lootCarcass",
+    type: "pickNode",
+    rarity: "common",
+    params: { options: 2, nodeRarity: "uncommon" },
+  },
+  travelingMerchant: {
+    id: "travelingMerchant",
+    type: "lootEquipment",
+    rarity: "common",
+    params: { count: 1 },
+  },
+  intenseTraining: {
+    id: "intenseTraining",
+    type: "upgradeNode",
+    rarity: "uncommon",
+    params: { levels: 1 },
+  },
+  sharpen: {
+    id: "sharpen",
+    type: "addEffect",
+    rarity: "uncommon",
+    params: { effect: { keyword: "attack", value: 3, upgradeDelta: 2 } },
+  },
+  meditation: {
+    id: "meditation",
+    type: "maxEquipment",
+    rarity: "rare",
+    params: { amount: 1 },
+  },
+};
+
+// Runs. Every run has a seed (seedLength characters, or ?seed=... in the URL)
+// that all of its randomness comes from; see src/game/random.js.
+// A run is enemyCount battles; every bossEvery-th is a boss. Between two
+// battles come encountersBetween encounters, each a choice of encounterChoices.
+// The first encounter after a boss always offers one of afterBossRarity.
+export const RUN = {
+  seedLength: 8,
+  startingTeam: ["ant"], // fighter template ids
+  enemyCount: 9,
+  bossEvery: 3,
+  firstEnemy: "mite", // the first battle is always this ENEMIES id
+  encountersBetween: 2,
+  encounterChoices: 2,
+  afterBossRarity: "rare", // the first encounter after a boss always offers one of this rarity
 };
 
 // Approved text sizes in px. These are the ONLY text sizes in the project.
 // Use them as Tailwind classes: text-base, text-lg, ... text-8xl.
 export const TEXT_SIZES = [
-  { name: 'base', px: 24 },
-  { name: 'lg', px: 30 },
-  { name: 'xl', px: 36 },
-  { name: '2xl', px: 48 },
-  { name: '3xl', px: 60 },
-  { name: '4xl', px: 72 },
-  { name: '5xl', px: 96 },
-  { name: '6xl', px: 120 },
-  { name: '7xl', px: 144 },
-  { name: '8xl', px: 192 },
+  { name: "base", px: 24 },
+  { name: "lg", px: 30 },
+  { name: "xl", px: 36 },
+  { name: "2xl", px: 48 },
+  { name: "3xl", px: 60 },
+  { name: "4xl", px: 72 },
+  { name: "5xl", px: 96 },
+  { name: "6xl", px: 120 },
+  { name: "7xl", px: 144 },
+  { name: "8xl", px: 192 },
 ];
