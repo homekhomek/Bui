@@ -6,6 +6,57 @@ const STRINGS = {
     title: 'Bui',
     subtitle: 'An autobattler',
     start: 'Start',
+
+    // Explore / edit phase
+    exploreTitle: 'Explore',
+    exploreIntro: 'Drag nodes and equipment into your fighter, and drag equipment to reorder it. Anything left floating is lost when the battle starts.',
+    fight: 'Fight!',
+
+    // Battle phase
+    vs: 'vs',
+    hp: 'HP {hp}/{max}',
+    shield: 'Shield {amount}',
+    play: 'Play',
+    pause: 'Pause',
+    restart: 'Restart',
+    skip: 'Skip',
+    speed: '×{n}',
+    victory: 'Victory!',
+    defeat: 'Defeat...',
+    draw: 'Draw',
+    back: 'Back',
+    emptySlot: 'Empty slot',
+
+    // Fighters
+    'fighter.knight': 'Knight',
+    'fighter.brute': 'Brute',
+
+    // Equipment
+    'equipment.sword': 'Sword',
+    'equipment.shield': 'Shield',
+    'equipment.charm': 'Charm',
+    'equipment.pack': 'Pack',
+
+    // Tooltips
+    tipLevel: 'Level {n}',
+    // {charge} and {slot} are drawn as symbols
+    // Metric displays (small bordered stat boxes)
+    metricCharge: '{n} {charge}',
+    metricSlots: '{n} {slot}',
+    metricChargeRate: '{n} {charge}/s',
+    tipUpgrade: 'Drop a matching node of the same level on it to upgrade',
+
+    // Effect keywords
+    'effect.attack': 'Attack',
+    'effect.shield': 'Shield',
+    'effect.heal': 'Heal',
+
+    // Nodes
+    'node.slash': 'Slash',
+    'node.bash': 'Bash',
+    'node.guard': 'Guard',
+    'node.mend': 'Mend',
+    'node.spin': 'Spin',
   },
 };
 

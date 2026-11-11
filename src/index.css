@@ -38,6 +38,12 @@
   --text-7xl: var(--size-7xl);
   --text-8xl: var(--size-8xl);
 
+  /* No shadows of any kind: Tailwind's shadow utilities are disabled. */
+  --shadow-*: initial;
+  --inset-shadow-*: initial;
+  --drop-shadow-*: initial;
+  --text-shadow-*: initial;
+
   --color-*: initial;
   --color-transparent: transparent;
   --color-current: currentColor;
@@ -75,6 +81,10 @@ body,
 }
 
 body {
+  /* Dragging is a core interaction, so text selection is off by default.
+     Add the select-text class to anything that should be selectable. */
+  user-select: none;
+  -webkit-user-select: none;
   font-family: var(--font-body);
   font-size: var(--text-base);
   background-color: var(--color-white);
@@ -88,4 +98,59 @@ h4,
 h5,
 h6 {
   font-family: var(--font-heading);
+}
+
+/* No shadows of any kind, anywhere. */
+*,
+*::before,
+*::after {
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+/* Anything selectable or hoverable gets the pointer cursor. */
+button:not(:disabled),
+a[href],
+label,
+select,
+summary,
+[role="button"],
+[title],
+.cursor-pointer {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* Floating nodes drift up and down. Height (--bob) and duration are set
+   inline from data.js. */
+@keyframes bob {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 calc(var(--bob) * -1);
+  }
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* The standard stroke width (STROKE_PX in data.js, set as --stroke in main.jsx).
+   Use this instead of border-2, border-4, etc. */
+@utility border-stroke {
+  border-width: var(--stroke);
+}
+
+/* Trim a text box to its letters (cap height to baseline), dropping the font's
+   built-in space above and below, so it centers visually next to icons. */
+@utility text-trim {
+  text-box: trim-both cap alphabetic;
 }
