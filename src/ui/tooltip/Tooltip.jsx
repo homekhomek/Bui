@@ -3,7 +3,7 @@
 // Hover tooltips: anything can open one by spreading useTooltip(type, data)
 // onto an element:
 //
-//   <div {...useTooltip('equipment', { id: 'sword' })} />
+//   <div {...useTooltip('equipment', { id: 'bluefur' })} />
 //
 // `type` picks a renderer from TOOLTIP_TYPES (tooltipTypes.jsx); add new
 // tooltip kinds there. Tooltips open instantly to the right of the hovered

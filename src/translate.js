@@ -50,19 +50,19 @@ const STRINGS = {
     "fighter.mite": "Mite",
 
     // Equipment
-    "equipment.sword": "Sword",
-    "equipment.shield": "Shield",
+    "equipment.bluefur": "Blue Fur",
+    "equipment.redplate": "Red Plate",
     "equipment.charm": "Charm",
     "equipment.pack": "Pack",
 
     // Tooltips
-    tipLevel: "Level {n}",
-    // {charge}, {slot} and {hp} are drawn as symbols
+    // {charge}, {slot}, {hp} and {lvl} are drawn as symbols
     // Metric displays (small bordered stat boxes)
     metricCharge: "{n} {charge}",
     metricSlots: "{n} {slot}",
     metricChargeRate: "{n} {charge}/s",
     metricHp: "{n} {hp}",
+    metricLevel: "{n} {lvl}",
     metricEquipment: "Holds {n} equipment",
     // What each metric means (no numbers: the metric shows those)
     "metricTip.metricCharge":
@@ -73,6 +73,8 @@ const STRINGS = {
       "How much {charge} this equipment gives each node touching it, every second.",
     "metricTip.metricHp":
       "How much {hp} this equipment adds to the max of the fighter holding it.",
+    "metricTip.metricLevel":
+      "The node's {lvl}. Each {lvl} adds the upgrade bonus to its effects.",
     "metricTip.fighterHp":
       "Max {hp}: the base, plus what each equipped piece adds.",
     "metricTip.metricEquipment":
@@ -88,9 +90,6 @@ const STRINGS = {
     "rarity.common": "Common",
     "rarity.uncommon": "Uncommon",
     "rarity.rare": "Rare",
-    "rarityTip.common": "Offered often.",
-    "rarityTip.uncommon": "Offered now and then.",
-    "rarityTip.rare": "Offered only once in a while.",
 
     // Encounters (name, description, action button). Descriptions can show
     // the encounter's params as {param}.
@@ -118,19 +117,23 @@ const STRINGS = {
     "effect.attack": "Attack",
     "effect.shield": "Shield",
     "effect.heal": "Heal",
+    "effect.strengthen": "Strengthen",
     // What each effect does (no numbers: the effect row shows those)
     "effectTip.attack":
       "Deals damage to the first enemy still standing. Shield counters block it first.",
     "effectTip.shield":
       "Gives this fighter shield counters. Each blocks 1 damage, then is used up.",
     "effectTip.heal": "Restores {hp} to this fighter, never above its max.",
+    "effectTip.strengthen":
+      "Every Attack on this node deals that much more damage, for the rest of the battle. Stacks.",
 
     // Nodes
-    "node.slash": "Slash",
-    "node.bash": "Bash",
+    "node.redgrassblade": "Redgrass Blade",
+    "node.stalkclub": "Stalk Club",
     "node.guard": "Guard",
     "node.mend": "Mend",
     "node.spin": "Spin",
+    "node.claw": "Claw",
   },
 };
 

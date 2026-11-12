@@ -13,20 +13,23 @@ function Title({ children }) {
   return <h3 className="text-lg leading-tight">{children}</h3>;
 }
 
-// { def, level, extra }. extra = effects this one node has gained on top of
-// its type's. node / name override the data.js entry (admin previews).
-export function NodeTooltip({ def, level = 1, extra = [], node = NODES[def], name = t(`node.${def}`) }) {
+// { def, level, extra, boosts }. extra = effects this one node has gained on
+// top of its type's; boosts = what it has built up this battle (keyword ->
+// amount). node / name override the data.js entry (admin previews).
+export function NodeTooltip({ def, level = 1, extra = [], boosts, node = NODES[def], name = t(`node.${def}`) }) {
   const effects = [...node.effects, ...(extra ?? [])];
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between gap-3">
         <Title>{name}</Title>
-        <MetricDisplay k="metricCharge" vars={{ n: node.maxCharge }} />
+        <div className="flex gap-2">
+          <MetricDisplay k="metricLevel" vars={{ n: level }} />
+          <MetricDisplay k="metricCharge" vars={{ n: node.maxCharge }} />
+        </div>
       </div>
       <RarityBadge id={node.rarity} />
-      <span className="text-slate">{t('tipLevel', { n: level })}</span>
       {effects.map((e, i) => (
-        <EffectRow key={i} effect={e} level={level} />
+        <EffectRow key={i} effect={e} level={level} boosts={boosts} />
       ))}
       {effects.some((e) => e.upgradeDelta) && <span className="text-slate">{t('tipUpgrade')}</span>}
     </div>
@@ -99,16 +102,6 @@ function MetricTooltip({ k }) {
   );
 }
 
-// { id }: what a rarity means
-function RarityTooltip({ id }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <Title>{t(`rarity.${id}`)}</Title>
-      <span>{t(`rarityTip.${id}`)}</span>
-    </div>
-  );
-}
-
 // { text }: a plain line of text
 function TextTooltip({ text }) {
   return <span>{text}</span>;
@@ -120,7 +113,6 @@ export const TOOLTIP_TYPES = {
   status: StatusTooltip,
   effect: EffectTooltip,
   metric: MetricTooltip,
-  rarity: RarityTooltip,
   node: NodeTooltip,
   equipment: EquipmentTooltip,
   emptySlot: EmptySlotTooltip,

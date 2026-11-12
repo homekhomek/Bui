@@ -9,9 +9,10 @@ const { iconPx, paddingXPx, paddingYPx, gapPx, minWidthPx } = EFFECT_ROW;
 // One effect as a clear horizontal box: icon, name, then the number.
 // Hovering it explains what the effect does. With onPointerDown it can be
 // dragged (an effect an encounter offers, to drop onto a node).
-export default function EffectRow({ effect, level = 1, onPointerDown }) {
+// boosts: what the node has built up this battle (keyword -> amount).
+export default function EffectRow({ effect, level = 1, boosts, onPointerDown }) {
   const kw = KEYWORDS[effect.keyword];
-  const value = effectValue(effect, level);
+  const value = effectValue(effect, level, boosts);
   const tooltip = useTooltip('effect', { keyword: kw.id });
   return (
     <div

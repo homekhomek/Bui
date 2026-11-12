@@ -1,11 +1,12 @@
 // Admin dashboard: browse, edit and create game data (nodes, equipment,
 // fighter templates, encounters), then
-// export data.js / translate.js. Dev only: App.jsx only loads this in
+// save data.js / translate.js into src/ (through the dev server) or download
+// them. Dev only: App.jsx only loads this in
 // `npm run dev`, at #admin. It is not part of player builds.
 //
 // Edits are drafts (see entities.js), kept in localStorage so a reload or hot
-// update doesn't lose them. Nothing changes in the game until the exported
-// files replace the ones in src/.
+// update doesn't lose them. Nothing changes in the game until they're saved
+// (or the downloaded files replace the ones in src/).
 
 import { useEffect, useMemo, useState } from 'react';
 import { ADMIN } from '../data.js';
@@ -27,6 +28,7 @@ import {
   validateAll,
 } from './entities.js';
 import { a } from './strings.js';
+import { saveFiles } from './save.js';
 
 const STORAGE_KEY = 'bui.admin.drafts';
 const EDITORS = { nodes: NodeEditor, equipment: EquipmentEditor, templates: TemplateEditor, encounters: EncounterEditor };
@@ -62,6 +64,8 @@ export default function AdminScreen() {
   const [selected, setSelected] = useState({}); // kind -> draft key
   const [resetArmed, setResetArmed] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [saveState, setSaveState] = useState('idle'); // idle | saving | saved | failed
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     try {
@@ -76,6 +80,12 @@ export default function AdminScreen() {
     const id = setTimeout(() => setCopied(false), ADMIN.flashMs);
     return () => clearTimeout(id);
   }, [copied]);
+
+  useEffect(() => {
+    if (saveState !== 'saved') return;
+    const id = setTimeout(() => setSaveState('idle'), ADMIN.flashMs);
+    return () => clearTimeout(id);
+  }, [saveState]);
 
   const errors = useMemo(() => validateAll(drafts), [drafts]);
   const errorKeys = useMemo(
@@ -115,6 +125,18 @@ export default function AdminScreen() {
     setCopied(true);
   };
   // Exports are formatted with Prettier, which is async.
+  // Save writes both files into src/; the game hot-reloads with them.
+  const save = async () => {
+    setSaveState('saving');
+    try {
+      const [data, translate] = await Promise.all([buildDataJs(drafts), buildTranslateJs(drafts)]);
+      await saveFiles({ data, translate });
+      setSaveState('saved');
+    } catch (e) {
+      setSaveError(String(e?.message ?? e));
+      setSaveState('failed');
+    }
+  };
   const exportFile = async (fileName, build) => download(fileName, await build(drafts));
 
   const Editor = EDITORS[tab];
@@ -132,7 +154,10 @@ export default function AdminScreen() {
       {/* Export */}
       <div className="flex flex-col items-center gap-2">
         <div className="flex flex-wrap justify-center gap-2">
-          <Button primary disabled={errors.length > 0} onClick={() => exportFile('data.js', buildDataJs)}>
+          <Button primary disabled={errors.length > 0 || saveState === 'saving'} onClick={save}>
+            {a(saveState === 'saving' ? 'saving' : saveState === 'saved' ? 'saved' : 'save')}
+          </Button>
+          <Button disabled={errors.length > 0} onClick={() => exportFile('data.js', buildDataJs)}>
             {a('downloadData')}
           </Button>
           <Button disabled={errors.length > 0} onClick={() => exportFile('translate.js', buildTranslateJs)}>
@@ -148,6 +173,11 @@ export default function AdminScreen() {
         <span className="text-slate">
           {unchanged ? a('upToDate') : a('unexported')} · {a('exportHint')}
         </span>
+        {saveState === 'failed' && (
+          <span className="rounded-lg border-stroke border-dashed border-dusk bg-peach px-4 py-2 select-text">
+            {a('saveFailed', { error: saveError })}
+          </span>
+        )}
         {errors.length > 0 && (
           <div className="flex flex-col items-center rounded-lg border-stroke border-dashed border-dusk bg-peach px-4 py-2">
             <span>{a('errorsTitle')}</span>

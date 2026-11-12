@@ -1,4 +1,4 @@
-import { CHARGE, EFFECT_ROW, HP, INVENTORY } from '../data.js';
+import { CHARGE, EFFECT_ROW, HP, INVENTORY, LEVEL } from '../data.js';
 import { t } from '../translate.js';
 import { effectIcon } from './assets.js';
 
@@ -10,6 +10,7 @@ const imgSymbol = (src) => (size) => (
 const SYMBOLS = {
   charge: imgSymbol(effectIcon(CHARGE.icon)),
   hp: imgSymbol(effectIcon(HP.icon)),
+  lvl: imgSymbol(effectIcon(LEVEL.icon)),
   // A node slot: a small grey rounded square, like a grid tile.
   slot: (size) => (
     <span

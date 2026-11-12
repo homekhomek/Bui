@@ -36,6 +36,8 @@ const fileNames = (glob) =>
     .map((path) => path.split('/').pop().replace(/\.svg$/, ''))
     .sort();
 export const EQUIPMENT_ICONS = fileNames(import.meta.glob('/public/assets/equipment/*.svg'));
+// Node art: the file names in public/assets/nodes.
+export const NODE_ICONS = fileNames(import.meta.glob('/public/assets/nodes/*.svg'));
 // Fighter sprites: the file names in public/assets/fighters.
 export const FIGHTER_SPRITES = fileNames(import.meta.glob('/public/assets/fighters/*.svg'));
 
@@ -92,6 +94,7 @@ const nodes = {
     rarity: n.rarity,
     maxCharge: str(n.maxCharge),
     shape: n.shape.map(([x, y]) => [x, y]),
+    icon: n.icon ?? '',
     effects: n.effects.map((e) => ({ keyword: e.keyword, value: str(e.value), upgradeDelta: str(e.upgradeDelta) })),
   }),
 
@@ -105,6 +108,7 @@ const nodes = {
       rarity: RARITY_IDS[0],
       maxCharge: str(newNode.maxCharge),
       shape: [[0, 0]],
+      icon: '',
       effects: [{ keyword: newNode.effect.keyword, value: str(newNode.effect.value), upgradeDelta: str(newNode.effect.upgradeDelta) }],
     };
   },
@@ -115,6 +119,7 @@ const nodes = {
     maxCharge: num(d.maxCharge),
     color: d.color,
     rarity: d.rarity,
+    ...(d.icon ? { icon: d.icon } : {}),
     effects: d.effects.map((e) => {
       const out = { keyword: e.keyword, value: num(e.value) };
       if (str(e.upgradeDelta).trim() !== '') out.upgradeDelta = num(e.upgradeDelta);
@@ -136,6 +141,7 @@ const nodes = {
       `    maxCharge: ${n.maxCharge},`,
       `    color: ${quote(n.color)},`,
       `    rarity: ${quote(n.rarity)},`,
+      ...(n.icon ? [`    icon: ${quote(n.icon)},`] : []),
       `    effects: ${effects},`,
       `  },`,
     ].join('\n');
@@ -146,13 +152,14 @@ const nodes = {
     checkRarity(d, err);
     if (!n.shape.length) err('errShape');
     if (!(n.maxCharge > 0)) err('errCharge');
+    if (n.icon && !NODE_ICONS.includes(n.icon)) err('errNodeIcon', { icon: n.icon });
     n.effects.forEach((e, i) => {
       if (!Number.isFinite(e.value) || ('upgradeDelta' in e && !Number.isFinite(e.upgradeDelta))) err('errEffect', { n: i + 1 });
     });
   },
 
   // Explorer
-  searchText: (d) => d.effects.map((e) => t(`effect.${e.keyword}`)).join(' '),
+  searchText: (d) => `${d.icon ?? ''} ${d.effects.map((e) => t(`effect.${e.keyword}`)).join(' ')}`,
   sorts: {
     rarity: { label: 'sortRarity', value: rarityRank },
     charge: { label: 'sortCharge', value: (d) => num(d.maxCharge) },

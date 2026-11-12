@@ -21,6 +21,9 @@
 //   status  { target, status, amount }         status counters gained (+) or
 //                                              used up (-); see STATUSES
 //   heal    { target, amount }                 hp actually restored
+//   boost   { fighter, node, keyword, amount } the node's effects of keyword
+//                                              get +amount for the rest of the
+//                                              battle (see KEYWORDS.boosts)
 //   defeat  { fighter }
 //   end     { winner }                         'player' | 'enemy' | 'draw'
 
@@ -61,6 +64,7 @@ export function createBattleState(teams) {
           charge: 0,
           rate: 0,
           chargeT: 0,
+          boosts: {}, // keyword -> amount added to this node's effects of it
         })),
       });
     });
@@ -113,6 +117,11 @@ export function applyEvent(state, e) {
     case 'heal':
       fighterById(state, e.target).hp += e.amount;
       break;
+    case 'boost': {
+      const { boosts } = nodeByUid(fighterById(state, e.fighter), e.node);
+      boosts[e.keyword] = (boosts[e.keyword] ?? 0) + e.amount;
+      break;
+    }
     case 'defeat':
       fighterById(state, e.fighter).alive = false;
       break;
@@ -159,10 +168,15 @@ export function runBattle(teams, seed) {
     }
   };
 
-  // Run one node effect. Keywords: attack, shield, heal (see KEYWORDS).
-  const resolveEffect = (f, effect, level) => {
-    const value = effectValue(effect, level);
-    if (effect.keyword === 'attack') {
+  // Run one of node n's effects. Keywords: attack, shield, heal, strengthen
+  // (see KEYWORDS).
+  const resolveEffect = (f, n, effect) => {
+    const value = effectValue(effect, n.level, n.boosts);
+    if (KEYWORDS[effect.keyword].boosts) {
+      // Boost keywords (strengthen, ...): this node's effects of that keyword
+      // get +value from now on, including later ones in this same firing.
+      if (value !== 0) emit({ type: 'boost', fighter: f.id, node: n.uid, keyword: KEYWORDS[effect.keyword].boosts, amount: value });
+    } else if (effect.keyword === 'attack') {
       const target = state.fighters.find((o) => o.team !== f.team && o.alive);
       if (!target) return;
       // Shield counters block damage first, one each, and are used up.
@@ -217,7 +231,7 @@ export function runBattle(teams, seed) {
         emit({ type: 'trigger', fighter: f.id, node: n.uid });
         for (const effect of nodeEffects(n)) {
           if (state.winner) break;
-          resolveEffect(f, effect, n.level);
+          resolveEffect(f, n, effect);
         }
         emit({ type: 'move', fighter: f.id, node: n.uid, x: spawnX(f.equipment, f.nodes, n), spawn: true });
         settleFighter(f);

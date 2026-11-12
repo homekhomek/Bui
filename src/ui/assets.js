@@ -4,5 +4,6 @@
 const base = import.meta.env.BASE_URL;
 
 export const effectIcon = (name) => `${base}assets/effects/${name}.svg`;
+export const nodeIcon = (name) => `${base}assets/nodes/${name}.svg`;
 export const equipmentIcon = (name) => `${base}assets/equipment/${name}.svg`;
 export const fighterSprite = (name) => `${base}assets/fighters/${name}.svg`;

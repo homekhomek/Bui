@@ -4,9 +4,11 @@
 
 import { NODES } from '../data.js';
 
-// An effect's number at a node level (levels start at 1).
-export function effectValue(effect, level = 1) {
-  return effect.value + (effect.upgradeDelta ?? 0) * (level - 1);
+// An effect's number at a node level (levels start at 1), plus any boost the
+// node has built up for its keyword this battle (boosts: keyword -> amount,
+// see KEYWORDS.boosts).
+export function effectValue(effect, level = 1, boosts) {
+  return effect.value + (effect.upgradeDelta ?? 0) * (level - 1) + (boosts?.[effect.keyword] ?? 0);
 }
 
 // A node's effects: its type's (NODES), then any extra effects this one node

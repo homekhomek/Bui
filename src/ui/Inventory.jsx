@@ -3,7 +3,7 @@ import { ANIM, EDIT, EQUIPMENT, INVENTORY, NODES, SELECT, STROKE_PX } from '../d
 import { nodeOutlinePath } from './nodeOutline.js';
 import { useEdit, useSlide } from './editContext.js';
 import { useSelectable, useTooltip } from './tooltip/Tooltip.jsx';
-import { equipmentIcon } from './assets.js';
+import { equipmentIcon, nodeIcon } from './assets.js';
 
 const { cellPx, gapPx, tileRadiusPx: radius, equipmentBorderPx, unchargedOpacity } = INVENTORY;
 const { pipRadiusPx, pipGapPx, pipInsetPx } = INVENTORY;
@@ -23,7 +23,8 @@ const selectAnim = {
 // Upgraded nodes show one pip per level; the node pops when its level rises.
 // tooltip=false keeps it clickable without a tooltip (admin: unsaved nodes).
 // extra: effects this one node has gained (shown in its tooltip).
-export function NodeShape({ def, level = 1, extra, uid, charge = def.maxCharge, highlight = false, interactive = true, tooltip: showTooltip = true, onPointerDown }) {
+// boosts: what it has built up this battle (keyword -> amount, in its tooltip).
+export function NodeShape({ def, level = 1, extra, boosts, uid, charge = def.maxCharge, highlight = false, interactive = true, tooltip: showTooltip = true, onPointerDown }) {
   const id = `node-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const svgRef = useRef(null);
   const lastLevel = useRef(level);
@@ -34,8 +35,8 @@ export function NodeShape({ def, level = 1, extra, uid, charge = def.maxCharge, 
   const height = rows * STEP - gapPx;
   const unchargedPx = height * (1 - charge / def.maxCharge);
   const [px, py] = def.shape[0];
-  const tooltip = useTooltip('node', { def: def.id, level, extra });
-  const sel = useSelectable('node', { def: def.id, level, extra });
+  const tooltip = useTooltip('node', { def: def.id, level, extra, boosts });
+  const sel = useSelectable('node', { def: def.id, level, extra, boosts });
   const selectable = interactive && showTooltip;
 
   useLayoutEffect(() => {
@@ -73,6 +74,8 @@ export function NodeShape({ def, level = 1, extra, uid, charge = def.maxCharge, 
       )}
       <g clipPath={`url(#${id})`}>
         <path d={outline} fillRule="evenodd" fill={color(def.color)} />
+        {/* Art: drawn on the node's template, so it covers exactly its bounding box */}
+        {def.icon && <image href={nodeIcon(def.icon)} x={0} y={0} width={width} height={height} preserveAspectRatio="none" />}
         {/* Uncharged part is washed out; the node fills upward as charge builds */}
         <rect x={0} y={0} width={width} height={unchargedPx} fill={color('white')} opacity={unchargedOpacity} />
         {/* Border: stroke is centered on the path, the clip keeps the inner half */}
@@ -154,6 +157,7 @@ function GridNode({ node, area, colOffset, animMs }) {
         def={NODES[node.def]}
         level={node.level}
         extra={node.extra}
+        boosts={node.boosts}
         uid={node.uid}
         charge={node.charge}
         highlight={edit?.hover?.upgrade === node.uid || edit?.hover?.applyTo === node.uid}

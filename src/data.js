@@ -63,6 +63,12 @@ export const METRIC = {
   paddingYPx: 2,
 };
 
+// Rarity badges: a rarity's name in a box tinted its color (same everywhere)
+export const RARITY_BADGE = {
+  paddingXPx: 12,
+  paddingYPx: 6,
+};
+
 // Status counters on fighters in battle (icon + count, see STATUSES)
 export const STATUS_COUNTER = {
   iconPx: 28,
@@ -160,8 +166,8 @@ export const SPRITE = {
 
 // Rarities, from most to least common. Every node and piece of equipment has
 // one. weight = how likely an offer slot is to roll that rarity (relative to the
-// others); color = the palette color of its badge. Name / description:
-// 'rarity.<id>' and 'rarityTip.<id>' in translate.js.
+// others); color = the palette color of its badge. Name: 'rarity.<id>' in
+// translate.js.
 export const RARITIES = {
   common: { id: "common", weight: 65, color: "mist" },
   uncommon: { id: "uncommon", weight: 30, color: "mint" },
@@ -224,10 +230,18 @@ export const STATUSES = {
 // palette color its box is tinted (matches the icon's own fill).
 // status (optional) = the status counter the effect gives its own fighter, one
 // counter per point of value.
+// boosts (optional) = a keyword this effect strengthens: for the rest of the
+// battle, every effect of that keyword on the same node gets +value.
 export const KEYWORDS = {
   attack: { id: "attack", icon: "attack", color: "rose" }, // red
   shield: { id: "shield", icon: "shield", color: "ice", status: "shield" }, // blue
   heal: { id: "heal", icon: "heal", color: "sage" }, // green
+  strengthen: {
+    id: "strengthen",
+    icon: "strengthen",
+    color: "peach",
+    boosts: "attack",
+  }, // peach
 };
 
 // Charge is always shown as its symbol, never the word ({charge} in strings).
@@ -236,36 +250,52 @@ export const CHARGE = { icon: "charge", color: "cream" };
 // HP is likewise always shown as its symbol ({hp} in strings): the heal icon.
 export const HP = { icon: "heal" };
 
+// A node's level is shown as its symbol ({lvl} in strings).
+export const LEVEL = { icon: "lvl" };
+
 // Nodes are tetris-like pieces. shape = [x, y] tile offsets from the node's
-// position (rarity = a RARITIES id). At maxCharge the node runs its effects in order, then teleports to
+// position (rarity = a RARITIES id). icon (optional) = file name in
+// public/assets/nodes, drawn from the admin's art template so it fits the shape
+// exactly; without one the node is a plain color. At maxCharge the node runs its effects in order, then teleports to
 // the far right and slides back left (gravity), joining the back of the queue.
 //
 // effects: what the node does, in order. Each effect is
 //   { keyword, value, upgradeDelta? }
 // keyword: attack (damage the first living enemy; shield counters block it),
-// shield (gain that many shield counters), heal (self).
+// shield (gain that many shield counters), heal (self), strengthen (this
+// node's attacks deal that much more for the rest of the battle).
 // value at a given level = value + upgradeDelta * (level - 1).
 // A node with any upgradeDelta can be upgraded by dropping another node of the
 // same type and level onto it.
 export const NODES = {
-  slash: {
-    id: "slash",
-    shape: [[0, 0]],
-    maxCharge: 10,
-    color: "pink",
-    rarity: "common",
-    effects: [{ keyword: "attack", value: 3, upgradeDelta: 2 }],
-  },
-  bash: {
-    id: "bash",
+  redgrassblade: {
+    id: "redgrassblade",
     shape: [
       [0, 0],
       [1, 0],
+      [2, 0],
     ],
-    maxCharge: 18,
-    color: "dusty",
+    maxCharge: 30,
+    color: "pink",
+    rarity: "uncommon",
+    icon: "redgrassblade",
+    effects: [
+      { keyword: "attack", value: 8, upgradeDelta: 4 },
+      { keyword: "strengthen", value: 2, upgradeDelta: 1 },
+    ],
+  },
+  stalkclub: {
+    id: "stalkclub",
+    shape: [
+      [0, 0],
+      [1, 0],
+      [2, 0],
+    ],
+    maxCharge: 30,
+    color: "pink",
     rarity: "common",
-    effects: [{ keyword: "attack", value: 6, upgradeDelta: 3 }],
+    icon: "stalkclub",
+    effects: [{ keyword: "attack", value: 12, upgradeDelta: 3 }],
   },
   guard: {
     id: "guard",
@@ -306,6 +336,15 @@ export const NODES = {
       { keyword: "shield", value: 3, upgradeDelta: 1 },
     ],
   },
+  claw: {
+    id: "claw",
+    shape: [[0, 0]],
+    maxCharge: 10,
+    color: "pink",
+    rarity: "common",
+    icon: "claw",
+    effects: [{ keyword: "attack", value: 2, upgradeDelta: 1 }],
+  },
 };
 
 // Fighter templates: every fighter in the game, ready-made with its equipment
@@ -324,22 +363,18 @@ export const FIGHTER_TEMPLATES = {
     baseHp: 10,
     maxEquipment: 4,
     equipment: ["redplate", "redplate"],
-    nodes: [
-      { node: "bash", x: 0, y: 0 },
-      { node: "bash", x: 2, y: 0 },
-      { node: "bash", x: 2, y: 1 },
-      { node: "bash", x: 0, y: 1 },
-    ],
+    nodes: [{ node: "redgrassblade", x: 0, y: 0 }],
   },
   mite: {
     id: "mite",
     sprite: "mite",
     baseHp: 10,
     maxEquipment: 2,
-    equipment: ["bluefur"],
+    equipment: ["bluefur", "bluefur"],
     nodes: [
-      { node: "slash", x: 0, y: 0 },
-      { node: "slash", x: 1, y: 0 },
+      { node: "claw", x: 1, y: 0 },
+      { node: "guard", x: 0, y: 0 },
+      { node: "claw", x: 1, y: 1, level: 2 },
     ],
   },
 };

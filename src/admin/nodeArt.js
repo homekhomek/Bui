@@ -5,11 +5,13 @@
 // art drawn on the template lines up with the node in game. The template has:
 //   guide-node   the node's outline, filled with its color (exactly the shape
 //                the game draws: connected tiles bridge the gaps between them)
+//   guide-border the band the game's border covers (it is drawn inside the
+//                outline): keep the art inside it, or the border hides its edge
 //   guide-empty  a square on every tile inside the node's bounding box that the
 //                node doesn't take up
-// Both are guides: delete or hide them once the art is drawn.
+// All are guides: delete or hide them once the art is drawn.
 
-import { INVENTORY, SPRITE } from '../data.js';
+import { INVENTORY, SPRITE, STROKE_PX } from '../data.js';
 import { nodeOutlinePath } from '../ui/nodeOutline.js';
 import { PALETTE_HEX } from './entities.js';
 
@@ -18,6 +20,7 @@ export const ART = {
   tile: SPRITE.tileArt,
   gap: INVENTORY.gapPx * scale,
   radius: INVENTORY.tileRadiusPx * scale,
+  border: STROKE_PX * scale,
 };
 const step = ART.tile + ART.gap;
 
@@ -48,9 +51,17 @@ export function nodeArtTemplate(node) {
     '<?xml version="1.0" encoding="utf-8"?>',
     `<svg xmlns="http://www.w3.org/2000/svg" xmlns:bx="https://boxy-svg.com" viewBox="0 0 ${width} ${height}" width="${width}px" height="${height}px">`,
     `  <!-- Art template for node "${node.id}": ${cols} x ${rows} tiles, each ${ART.tile} x ${ART.tile}, ${r(ART.gap)} apart. -->`,
-    `  <defs><bx:grid x="0" y="0" width="${r(step)}" height="${r(step)}" divisions="1"/></defs>`,
+    `  <!-- guide-border: the game's ${r(ART.border)}-wide border covers this band; keep the art inside it. -->`,
+    '  <defs>',
+    `    <bx:grid x="0" y="0" width="${r(step)}" height="${r(step)}" divisions="1"/>`,
+    `    <clipPath id="guide-clip"><path d="${outline}" fill-rule="evenodd"/></clipPath>`,
+    '  </defs>',
     '  <g id="guide-node">',
     `    <path d="${outline}" fill="${PALETTE_HEX[node.color] ?? PALETTE_HEX.mist}" fill-rule="evenodd"/>`,
+    '  </g>',
+    '  <g id="guide-border" clip-path="url(#guide-clip)">',
+    // Centered stroke twice as wide, clipped to the outline: the inner half is the band.
+    `    <path d="${outline}" fill="none" stroke="${PALETTE_HEX.dusk}" stroke-width="${r(ART.border * 2)}" fill-rule="evenodd"/>`,
     '  </g>',
     '  <g id="guide-empty">',
     ...empty,

@@ -7,7 +7,7 @@ import { NodeShape } from '../ui/Inventory.jsx';
 import { NodeTooltip } from '../ui/tooltip/tooltipTypes.jsx';
 import ShapeEditor from './ShapeEditor.jsx';
 import { Button, ColorPicker, Field, Label, NumberInput, RarityPicker, inputClass } from './controls.jsx';
-import { KINDS, download } from './entities.js';
+import { KINDS, NODE_ICONS, download } from './entities.js';
 import { nodeArtTemplate } from './nodeArt.js';
 import { a } from './strings.js';
 
@@ -63,6 +63,17 @@ export default function NodeEditor({ draft, update }) {
 
         <Field label={a('fieldColor')}>
           <ColorPicker value={draft.color} onChange={(color) => update(() => ({ color }))} />
+        </Field>
+
+        <Field label={a('fieldNodeIcon')}>
+          <select className={inputClass} value={draft.icon ?? ''} onChange={(e) => update(() => ({ icon: e.target.value }))}>
+            <option value="">{a('iconNone')}</option>
+            {NODE_ICONS.map((icon) => (
+              <option key={icon} value={icon}>
+                {icon}.svg
+              </option>
+            ))}
+          </select>
         </Field>
 
         <Field label={a('fieldEffects')}>

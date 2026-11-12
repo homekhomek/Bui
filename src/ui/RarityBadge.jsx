@@ -1,18 +1,16 @@
-import { METRIC, RARITIES } from '../data.js';
+import { RARITIES, RARITY_BADGE } from '../data.js';
 import { t } from '../translate.js';
-import { useTooltip } from './tooltip/Tooltip.jsx';
 
-// A rarity's name in a small box tinted its color. Hovering it explains it.
+// A rarity's name in a small box tinted its color. No tooltip.
+// The one rarity badge used everywhere: its size never depends on where it sits.
 export default function RarityBadge({ id }) {
   const rarity = RARITIES[id];
-  const tooltip = useTooltip('rarity', { id });
   if (!rarity) return null;
   return (
     <span className="flex">
       <span
-        {...tooltip}
-        className="inline-flex items-center rounded border-stroke border-dusk leading-none cursor-pointer"
-        style={{ padding: `${METRIC.paddingYPx}px ${METRIC.paddingXPx}px`, backgroundColor: `var(--color-${rarity.color})` }}
+        className="inline-flex items-center text-base whitespace-nowrap rounded border-stroke border-dusk leading-none"
+        style={{ padding: `${RARITY_BADGE.paddingYPx}px ${RARITY_BADGE.paddingXPx}px`, backgroundColor: `var(--color-${rarity.color})` }}
       >
         <span className="text-trim">{t(`rarity.${id}`)}</span>
       </span>
