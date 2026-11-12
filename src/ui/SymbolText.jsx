@@ -1,26 +1,25 @@
-import { CHARGE, EFFECT_ROW, HP, INVENTORY, LEVEL } from '../data.js';
+import { CHARGE, HP, INVENTORY, LEVEL, UI } from '../data.js';
 import { t } from '../translate.js';
-import { effectIcon } from './assets.js';
+import EffectIcon from './EffectIcon.jsx';
 
-const imgSymbol = (src) => (size) => (
-  <img src={src} alt="" width={size} height={size} draggable={false} className="inline-block align-middle shrink-0" />
-);
+const iconSymbol = (icon) => (size) => <EffectIcon icon={icon} size={size} />;
 
 // Placeholders drawn as symbols instead of words.
 const SYMBOLS = {
-  charge: imgSymbol(effectIcon(CHARGE.icon)),
-  hp: imgSymbol(effectIcon(HP.icon)),
-  lvl: imgSymbol(effectIcon(LEVEL.icon)),
-  // A node slot: a small grey rounded square, like a grid tile.
+  charge: iconSymbol(CHARGE.icon),
+  hp: iconSymbol(HP.icon),
+  lvl: iconSymbol(LEVEL.icon),
+  // A node slot: a small grey bordered rounded square, like a grid tile.
+  // The border sits inside its size (border-box), so it takes the same space.
   slot: (size) => (
     <span
-      className="inline-block align-middle shrink-0 rounded bg-mist"
+      className="inline-block align-middle shrink-0 rounded-tile border-stroke border-dusk bg-mist"
       style={{ width: size * INVENTORY.slotSymbolScale, height: size * INVENTORY.slotSymbolScale }}
     />
   ),
 };
 
-export function SymbolIcon({ name, size = EFFECT_ROW.inlineIconPx }) {
+export function SymbolIcon({ name, size = UI.iconPx }) {
   return SYMBOLS[name](size);
 }
 

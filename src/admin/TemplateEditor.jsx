@@ -4,11 +4,13 @@
 
 import { useState } from 'react';
 import { ADMIN, EDIT, INVENTORY, LIMITS, SPRITE } from '../data.js';
-import { EquipmentPiece, NodeShape, STEP } from '../ui/Inventory.jsx';
+import { cellSet, cellsFit, shapeCells } from '../game/inventory.js';
+import { EquipmentPiece, NodeShape, step } from '../ui/Inventory.jsx';
 import FighterSprite from '../ui/FighterSprite.jsx';
 import { fighterSprite } from '../ui/assets.js';
 import { useTooltip } from '../ui/tooltip/Tooltip.jsx';
-import { Button, Field, Label, NumberInput, inputClass } from './controls.jsx';
+import { ArtFile, Button, Field, Label, NumberInput, inputClass } from './controls.jsx';
+import { fighterArtTemplate } from './artTemplates.js';
 import {
   FIGHTER_SPRITES,
   KINDS,
@@ -21,13 +23,13 @@ import {
 } from './entities.js';
 import { a } from './strings.js';
 
-const cell = { width: INVENTORY.cellPx, height: INVENTORY.cellPx };
+const cellSize = () => ({ width: INVENTORY.cellPx, height: INVENTORY.cellPx });
 
 // A sprite file shown small: just its body square, like in game.
 export function SpriteThumb({ sprite, size = ADMIN.thumbPx }) {
   const scale = size / SPRITE.bodyArt;
   return (
-    <div className="relative shrink-0 overflow-hidden rounded border-stroke border-dusk bg-white" style={{ width: size, height: size }}>
+    <div className="relative shrink-0 overflow-hidden rounded-tile border-stroke border-dusk bg-white" style={{ width: size, height: size }}>
       {sprite && (
         <img
           src={fighterSprite(sprite)}
@@ -52,7 +54,7 @@ function SpriteChoice({ sprite, selected, onClick }) {
     <button
       {...tooltip}
       onClick={onClick}
-      className={`p-1 rounded-lg border-stroke ${selected ? 'border-dusk bg-mist' : 'border-transparent hover:bg-haze'}`}
+      className={`p-1 rounded-tile border-stroke ${selected ? 'border-dusk bg-mist' : 'border-transparent hover:bg-haze'}`}
     >
       <SpriteThumb sprite={sprite} />
     </button>
@@ -103,12 +105,9 @@ export default function TemplateEditor({ draft, update, ctx }) {
 
   // Placing the brush node at (x, y): it must fit, like in game.
   const brushDraft = resolve(ctx.nodes, brush);
-  const taken = new Set(draft.nodes.flatMap((n) => templateNodeCells(n, ctx)).map(([x, y]) => `${x},${y}`));
-  const brushCells = (x, y) => (brushDraft ? KINDS.nodes.toEntry(brushDraft).shape.map(([dx, dy]) => [x + dx, y + dy]) : []);
-  const fitsAt = (x, y) => {
-    const cells = brushCells(x, y);
-    return cells.length > 0 && cells.every(([cx, cy]) => cy >= 0 && cy < widths.length && cx >= 0 && cx < widths[cy] && !taken.has(`${cx},${cy}`));
-  };
+  const taken = cellSet(draft.nodes.flatMap((n) => templateNodeCells(n, ctx)));
+  const brushCells = (x, y) => (brushDraft ? shapeCells(KINDS.nodes.toEntry(brushDraft).shape, x, y) : []);
+  const fitsAt = (x, y) => cellsFit(widths, brushCells(x, y), taken);
   const level = Math.max(1, Math.floor(num(brushLevel)) || 1);
   const place = (x, y) => {
     if (!fitsAt(x, y)) return;
@@ -139,6 +138,10 @@ export default function TemplateEditor({ draft, update, ctx }) {
               <SpriteChoice key={s} sprite={s} selected={draft.sprite === s} onClick={() => update(() => ({ sprite: s }))} />
             ))}
           </div>
+        </Field>
+
+        <Field label={a('fieldArt')}>
+          <ArtFile folder="fighters" name={draft.id} build={fighterArtTemplate} onCreated={(sprite) => update(() => ({ sprite }))} />
         </Field>
 
         <Field label={a('fieldEquipment')}>
@@ -174,7 +177,7 @@ export default function TemplateEditor({ draft, update, ctx }) {
       </div>
 
       <Field label={a('fieldInventory')}>
-        <span className="text-slate" style={{ maxWidth: cols * STEP }}>
+        <span className="text-slate" style={{ maxWidth: cols * step() }}>
           {a('inventoryHint')}
         </span>
         <div className="flex flex-wrap items-end gap-2">
@@ -195,17 +198,17 @@ export default function TemplateEditor({ draft, update, ctx }) {
         {/* The fighter's inventory, as in game: equipment column, then node rows */}
         <div
           className="relative"
-          style={{ width: cols * STEP - INVENTORY.gapPx, height: rows * STEP - INVENTORY.gapPx }}
+          style={{ width: cols * step() - INVENTORY.gapPx, height: rows * step() - INVENTORY.gapPx }}
           onPointerLeave={() => setHover(null)}
         >
           {Array.from({ length: rows }, (_, y) => {
             const eq = resolve(ctx.equipment, draft.equipment[y]);
             return (
-              <div key={`e${y}`} className="absolute" style={{ left: 0, top: y * STEP }}>
+              <div key={`e${y}`} className="absolute" style={{ left: 0, top: y * step() }}>
                 {eq ? (
                   <EquipmentPiece def={eq.id} data={KINDS.equipment.toEntry(eq)} interactive={false} />
                 ) : (
-                  <div className="rounded-lg border-stroke border-dashed border-lilac" style={cell} />
+                  <div className="rounded-tile border-stroke border-dashed border-lilac" style={cellSize()} />
                 )}
               </div>
             );
@@ -214,8 +217,8 @@ export default function TemplateEditor({ draft, update, ctx }) {
             Array.from({ length: w }, (_, x) => (
               <div
                 key={`${x},${y}`}
-                className="absolute rounded bg-haze cursor-pointer"
-                style={{ ...cell, left: (x + 1) * STEP, top: y * STEP }}
+                className="absolute rounded-tile bg-haze cursor-pointer"
+                style={{ ...cellSize(), left: (x + 1) * step(), top: y * step() }}
                 onPointerEnter={() => setHover({ x, y })}
                 onClick={() => place(x, y)}
               />
@@ -225,7 +228,7 @@ export default function TemplateEditor({ draft, update, ctx }) {
             const nd = resolve(ctx.nodes, n.node);
             if (!nd || !nd.shape.length) return null;
             return (
-              <div key={i} className="absolute pointer-events-none" style={{ left: (n.x + 1) * STEP, top: n.y * STEP }}>
+              <div key={i} className="absolute pointer-events-none" style={{ left: (n.x + 1) * step(), top: n.y * step() }}>
                 <NodeShape def={nodeDef(nd)} level={nodeLevel(n) || 1} tooltip={false} onPointerDown={() => removeNode(i)} />
               </div>
             );
@@ -235,11 +238,11 @@ export default function TemplateEditor({ draft, update, ctx }) {
             brushCells(hover.x, hover.y).map(([x, y]) => (
               <div
                 key={`p${x},${y}`}
-                className="absolute rounded border-stroke border-dashed border-dusk pointer-events-none"
+                className="absolute rounded-tile border-stroke border-dashed border-dusk pointer-events-none"
                 style={{
-                  ...cell,
-                  left: (x + 1) * STEP,
-                  top: y * STEP,
+                  ...cellSize(),
+                  left: (x + 1) * step(),
+                  top: y * step(),
                   backgroundColor: `var(--color-${fitsAt(hover.x, hover.y) ? 'mint' : 'peach'})`,
                   opacity: EDIT.previewOpacity,
                 }}
@@ -250,7 +253,7 @@ export default function TemplateEditor({ draft, update, ctx }) {
 
       <Field label={a('preview')}>
         <div className="flex flex-col items-center gap-2" style={{ paddingTop: (SPRITE.sizeArt - SPRITE.bodyArt) * (INVENTORY.cellPx / SPRITE.tileArt) }}>
-          {draft.sprite && <FighterSprite template={draft.id} sprite={draft.sprite} interactive={false} />}
+          {draft.sprite && <FighterSprite fighter={{ sprite: draft.sprite }} interactive={false} />}
           <span className="inline-flex items-center leading-none">
             <Label k="totalHp" vars={{ n: templateHp(draft, ctx) }} />
           </span>

@@ -1,8 +1,9 @@
 // Edit-phase loadout rules. Pure functions, no React.
 //
-// Loadout:  { fighters: [{ template, maxEquipment, equipment: [equip], nodes: [node] }], floating: [float] }
-//           template = a FIGHTER_TEMPLATES id; maxEquipment starts at the
-//           template's and can grow during a run
+// Loadout:  { fighters: [fighter], floating: [float] }
+// fighter:  the run's own copy of a fighter (see createFighter in fighter.js):
+//           { template, sprite, baseHp, maxEquipment, equipment: [equip], nodes: [node] }
+//           Anything on it can change during a run (e.g. maxEquipment grows).
 // equip:    { uid, def }                equipment; its index is its row
 // node:     { uid, def, level, extra?, x, y }   placed in a fighter's inventory grid
 //           extra = effects this one node has gained on top of its type's
@@ -22,20 +23,19 @@
 // stay wherever they fit. Gravity only applies once the battle starts.
 // Anything still floating is destroyed when a battle starts.
 
-import { FIGHTER_TEMPLATES, RARITIES } from '../data.js';
+import { RARITIES } from '../data.js';
 import { canUpgrade } from './effects.js';
-import { cellsAt, fits, rowWidths } from './inventory.js';
+import { cellsAt, cellsFit, cellSet, cellKey, fits, rowWidths } from './inventory.js';
 
 let nextUid = 0;
 const uid = () => `e${nextUid++}`;
 
 export function createLoadout(team) {
   return {
-    fighters: team.map((f) => ({
-      template: f.template,
-      maxEquipment: f.maxEquipment ?? FIGHTER_TEMPLATES[f.template].maxEquipment,
-      equipment: f.equipment.map((def) => ({ uid: uid(), def })),
-      nodes: f.nodes.map(({ node, level = 1, extra, x, y }) => ({ uid: uid(), def: node, level, extra, x, y })),
+    fighters: team.map(({ equipment, nodes, ...f }) => ({
+      ...structuredClone(f),
+      equipment: equipment.map((def) => ({ uid: uid(), def })),
+      nodes: nodes.map(({ node, level = 1, extra, x, y }) => ({ uid: uid(), def: node, level, extra, x, y })),
     })),
     floating: [],
   };
@@ -64,11 +64,10 @@ export function clearFloating(loadout) {
 
 // Loadout -> battle team format.
 export function loadoutToTeam(loadout) {
-  return loadout.fighters.map((f) => ({
-    template: f.template,
-    maxEquipment: f.maxEquipment,
-    equipment: f.equipment.map((e) => e.def),
-    nodes: f.nodes.map((n) => ({ node: n.def, level: n.level, extra: n.extra, x: n.x, y: n.y })),
+  return loadout.fighters.map(({ equipment, nodes, ...f }) => ({
+    ...structuredClone(f),
+    equipment: equipment.map((e) => e.def),
+    nodes: nodes.map((n) => ({ node: n.def, level: n.level, extra: n.extra, x: n.x, y: n.y })),
   }));
 }
 
@@ -78,15 +77,13 @@ export function areaWidths(loadout, area) {
 
 // Every cell of a def at (x, y) is inside the grid.
 export function inBounds(widths, def, x, y) {
-  return cellsAt(def, x, y).every(([cx, cy]) => cy >= 0 && cy < widths.length && cx >= 0 && cx < widths[cy]);
+  return cellsFit(widths, cellsAt(def, x, y));
 }
 
 // Nodes in fighter `area` that a def placed at (x, y) would land on.
 export function overlapping(loadout, area, uid, def, x, y) {
-  const cells = new Set(cellsAt(def, x, y).map(([cx, cy]) => `${cx},${cy}`));
-  return loadout.fighters[area].nodes.filter(
-    (n) => n.uid !== uid && cellsAt(n.def, n.x, n.y).some(([cx, cy]) => cells.has(`${cx},${cy}`))
-  );
+  const cells = cellSet(cellsAt(def, x, y));
+  return loadout.fighters[area].nodes.filter((n) => n.uid !== uid && cellsAt(n.def, n.x, n.y).some((c) => cells.has(cellKey(c))));
 }
 
 // Take node `uid` out of wherever it is. Returns [node, area]. Taking one
@@ -263,8 +260,10 @@ export function moveEquipment(loadout, uid, to, slot) {
 
   let item;
   if (src.area === 'float') {
-    const [{ uid: u, def }] = next.floating.splice(src.index, 1);
+    const [{ uid: u, def, zone }] = next.floating.splice(src.index, 1);
     item = { uid: u, def };
+    // Taking one 'choice' piece claims it: the other choices go away.
+    if (zone === 'choice') next.floating = next.floating.filter((n) => n.zone !== 'choice');
   } else {
     item = next.fighters[src.area].equipment[src.index];
   }

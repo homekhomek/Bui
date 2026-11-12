@@ -14,7 +14,7 @@ import { a } from './strings.js';
 export function EncounterThumb({ draft, size = ADMIN.thumbPx }) {
   return (
     <div
-      className="shrink-0 flex items-center justify-center rounded border-stroke border-dusk font-heading"
+      className="shrink-0 flex items-center justify-center rounded-tile border-stroke border-dusk font-heading"
       style={{ width: size, height: size, backgroundColor: `var(--color-${RARITIES[draft.rarity]?.color ?? 'haze'})` }}
     >
       {(draft.name || '?')[0]}

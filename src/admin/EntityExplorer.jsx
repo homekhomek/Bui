@@ -39,7 +39,7 @@ function Row({ kind, draft, selected, error, onSelect, ctx }) {
       data-key={draft.key}
       tabIndex={-1}
       onClick={() => onSelect(draft.key)}
-      className={`w-full flex items-center gap-3 px-2 py-1 text-left border-stroke rounded-lg ${
+      className={`w-full flex items-center gap-3 px-2 py-1 text-left border-stroke rounded-tile ${
         selected ? 'bg-mist' : 'hover:bg-haze'
       } ${selected || error ? 'border-dusk' : 'border-transparent'} ${error ? 'border-dashed' : ''}`}
     >
@@ -186,7 +186,7 @@ export default function EntityExplorer({ kind, drafts, selectedKey, onSelect, on
       <div
         ref={listRef}
         tabIndex={0}
-        className="flex flex-col gap-1 p-1 overflow-y-auto rounded-lg border-stroke border-dusk bg-blush"
+        className="flex flex-col gap-1 p-1 overflow-y-auto rounded-panel border-stroke border-dusk bg-blush"
         style={{ height: ADMIN.explorerHeightPx }}
       >
         {shown.map((d) => (

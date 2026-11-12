@@ -40,6 +40,15 @@
   --text-7xl: var(--size-7xl);
   --text-8xl: var(--size-8xl);
 
+  /*
+    Corner rounding: values come from CORNERS in data.js (set as --corner-* at
+    startup). Tailwind's default roundings are disabled; only rounded-tile,
+    rounded-panel (and rounded-full, for pills and circles) exist.
+  */
+  --radius-*: initial;
+  --radius-tile: var(--corner-tile);
+  --radius-panel: var(--corner-panel);
+
   /* No shadows of any kind: Tailwind's shadow utilities are disabled. */
   --shadow-*: initial;
   --inset-shadow-*: initial;

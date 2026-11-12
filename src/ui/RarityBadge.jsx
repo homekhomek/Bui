@@ -1,19 +1,30 @@
-import { RARITIES, RARITY_BADGE } from '../data.js';
+import { BADGE, RARITIES } from '../data.js';
 import { t } from '../translate.js';
 
-// A rarity's name in a small box tinted its color. No tooltip.
-// The one rarity badge used everywhere: its size never depends on where it sits.
-export default function RarityBadge({ id }) {
-  const rarity = RARITIES[id];
-  if (!rarity) return null;
+// A small label in a box tinted `color`, in the heading font (like metric
+// displays). No tooltip. Its size never depends on where it sits.
+export function Badge({ color, children }) {
   return (
     <span className="flex">
       <span
-        className="inline-flex items-center text-base whitespace-nowrap rounded border-stroke border-dusk leading-none"
-        style={{ padding: `${RARITY_BADGE.paddingYPx}px ${RARITY_BADGE.paddingXPx}px`, backgroundColor: `var(--color-${rarity.color})` }}
+        className="inline-flex items-center font-heading text-base whitespace-nowrap rounded-tile border-stroke border-dusk leading-none"
+        style={{ padding: `${BADGE.paddingYPx}px ${BADGE.paddingXPx}px`, backgroundColor: `var(--color-${color})` }}
       >
-        <span className="text-trim">{t(`rarity.${id}`)}</span>
+        <span className="text-trim">{children}</span>
       </span>
     </span>
   );
+}
+
+// What sort of thing something is ('node', 'equipment', ...; 'kind.<kind>'
+// in translate.js), e.g. next to its rarity in a tooltip.
+export function TypeBadge({ kind }) {
+  return <Badge color={BADGE.typeColors[kind]}>{t(`kind.${kind}`)}</Badge>;
+}
+
+// A rarity's name, tinted the rarity's color.
+export default function RarityBadge({ id }) {
+  const rarity = RARITIES[id];
+  if (!rarity) return null;
+  return <Badge color={rarity.color}>{t(`rarity.${id}`)}</Badge>;
 }

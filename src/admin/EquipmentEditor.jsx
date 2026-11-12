@@ -1,10 +1,11 @@
 // Admin editor for one equipment draft: stats, color, art, live preview.
 
 import { INVENTORY, LIMITS, TOOLTIP } from '../data.js';
-import { EquipmentPiece, STEP } from '../ui/Inventory.jsx';
+import { EquipmentPiece, step } from '../ui/Inventory.jsx';
 import { EquipmentTooltip } from '../ui/tooltip/tooltipTypes.jsx';
 import { useTooltip } from '../ui/tooltip/Tooltip.jsx';
-import { ColorPicker, EquipmentThumb, Field, Label, NumberInput, RarityPicker } from './controls.jsx';
+import { ArtFile, ColorPicker, EquipmentThumb, Field, Label, NumberInput, RarityPicker } from './controls.jsx';
+import { equipmentArtTemplate } from './artTemplates.js';
 import { EQUIPMENT_ICONS, KINDS, num } from './entities.js';
 import { a } from './strings.js';
 
@@ -14,7 +15,7 @@ function IconChoice({ icon, color, selected, onClick }) {
     <button
       {...tooltip}
       onClick={onClick}
-      className={`p-1 rounded-lg border-stroke ${selected ? 'border-dusk bg-mist' : 'border-transparent hover:bg-haze'}`}
+      className={`p-1 rounded-tile border-stroke ${selected ? 'border-dusk bg-mist' : 'border-transparent hover:bg-haze'}`}
     >
       <EquipmentThumb color={color} icon={icon} />
     </button>
@@ -68,23 +69,27 @@ export default function EquipmentEditor({ draft, update }) {
             ))}
           </div>
         </Field>
+
+        <Field label={a('fieldArt')}>
+          <ArtFile folder="equipment" name={draft.id} build={equipmentArtTemplate} onCreated={(icon) => update(() => ({ icon }))} />
+        </Field>
       </div>
 
       <Field label={a('rowPreview')}>
-        <div className="relative" style={{ width: (slots + 1) * STEP - INVENTORY.gapPx, height: INVENTORY.cellPx }}>
+        <div className="relative" style={{ width: (slots + 1) * step() - INVENTORY.gapPx, height: INVENTORY.cellPx }}>
           <div className="absolute left-0 top-0">
             <EquipmentPiece def={draft.id} data={preview} interactive={false} />
           </div>
           {Array.from({ length: slots }, (_, x) => (
             <div
               key={x}
-              className="absolute rounded bg-haze"
-              style={{ width: INVENTORY.cellPx, height: INVENTORY.cellPx, left: (x + 1) * STEP, top: 0 }}
+              className="absolute rounded-tile bg-haze"
+              style={{ width: INVENTORY.cellPx, height: INVENTORY.cellPx, left: (x + 1) * step(), top: 0 }}
             />
           ))}
         </div>
         <span className="text-slate">{a('tooltipPreview')}</span>
-        <div className="rounded-lg border-stroke border-dusk bg-blush px-4 py-2" style={{ maxWidth: TOOLTIP.maxWidthPx }}>
+        <div className="rounded-panel border-stroke border-dusk bg-blush px-4 py-2" style={{ maxWidth: TOOLTIP.maxWidthPx }}>
           <EquipmentTooltip id={draft.id} equipment={entry} name={draft.name} />
         </div>
       </Field>

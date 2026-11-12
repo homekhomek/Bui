@@ -6,7 +6,8 @@
 //              | { kind: 'effect', default }
 //   instant    the action happens as soon as the encounter is picked (no
 //              button): it puts things in the encounter for the player to take
-//   toTake(loadout)  for instant types: how many things are left to take
+//   toTake(loadout)  for instant types: how many things are left to take;
+//              once none are left, the encounter ends by itself
 //   hint       for instant types: a translate key shown instead of "Take N Things"
 //   needsNode  the player drags a node into the encounter's slot first
 //   canUse(loadout, params, node)        can the action be taken now?
@@ -40,6 +41,22 @@ export const ENCOUNTER_TYPES = {
     toTake: (loadout) => inZone(loadout, 'loot'),
     use: (loadout, p, rng) =>
       addFloating(loadout, times(p.count, () => floatingEquipment(pickByRarity(rng, EQUIPMENT), 'loot'))),
+  },
+
+  // Take one of `options` pieces of equipment (each rolled by rarity; all
+  // different when there are enough).
+  pickEquipment: {
+    params: { options: { kind: 'number', min: 2, default: 2 } },
+    instant: true,
+    toTake: (loadout) => (inZone(loadout, 'choice') ? 1 : 0),
+    use: (loadout, p, rng) => {
+      const picks = [];
+      for (let i = 0; i < p.options; i++) {
+        const left = Object.values(EQUIPMENT).filter((e) => !picks.includes(e.id));
+        picks.push(pickByRarity(rng, left.length ? left : EQUIPMENT));
+      }
+      return addFloating(loadout, picks.map((def) => floatingEquipment(def, 'choice')));
+    },
   },
 
   // Take one of `options` nodes of rarity `nodeRarity` (all different when

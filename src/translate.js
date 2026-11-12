@@ -10,11 +10,14 @@ const STRINGS = {
 
     // Explore / edit phase
     exploreTitle: "Prepare",
-    encounterTitle: "Encounter",
-    battleProgress: "Battle {n} of {total}",
-    bossBattle: "Boss",
-    encounterProgress: "Encounter {n} of {total}",
-    chooseEncounter: "Choose one",
+    // Run display (the run as a line of battles and encounters)
+    "runStep.battle": "Battle {n}",
+    "runStep.boss": "Boss Battle {n}",
+    "runStep.encounter": "Encounter",
+    "runState.complete": "Done",
+    "runState.current": "Now",
+    "runState.future": "Ahead",
+    runEnemy: "Against: {names}",
     slotHint: "Drag a node here",
     takeThings: "Take {n} Things",
     takeThing: "Take 1 Thing",
@@ -27,13 +30,10 @@ const STRINGS = {
     // Encounter params shown in descriptions
     paramEffect: "{name} {value}",
     paramEffectDelta: "{name} {value} (+{delta} per level)",
-    exploreIntro:
-      "Arrange your fighter: drag nodes and equipment in, and drag equipment to reorder it. Anything left floating is lost when the battle starts.",
     fight: "Fight!",
 
     // Battle phase
     vs: "vs",
-    hp: "{hp} {current}/{max}",
     play: "Play",
     pause: "Pause",
     restart: "Restart",
@@ -44,16 +44,23 @@ const STRINGS = {
     draw: "Draw",
     back: "Back",
     emptySlot: "Empty slot",
+    // What sort of thing a tooltip is about (next to its title)
+    "kind.fighter": "Fighter",
+    "kind.equipment": "Equipment",
+    "kind.node": "Node",
+    "kind.effect": "Effect",
 
     // Fighters
     "fighter.ant": "Ant",
+    "fighter.maxed": "Maxed Ant",
     "fighter.mite": "Mite",
 
     // Equipment
     "equipment.bluefur": "Blue Fur",
     "equipment.redplate": "Red Plate",
-    "equipment.charm": "Charm",
+    "equipment.leafnecklace": "Leaf Necklace",
     "equipment.pack": "Pack",
+    "equipment.powerstone": "Power Stone",
 
     // Tooltips
     // {charge}, {slot}, {hp} and {lvl} are drawn as symbols
@@ -62,8 +69,18 @@ const STRINGS = {
     metricSlots: "{n} {slot}",
     metricChargeRate: "{n} {charge}/s",
     metricHp: "{n} {hp}",
+    metricHealth: "{current}/{max} {hp}",
     metricLevel: "{n} {lvl}",
     metricEquipment: "Holds {n} equipment",
+    // Each metric's name, the header of its tooltip: the concept, then its symbol
+    "metricName.metricCharge": "Charge {charge}",
+    "metricName.metricSlots": "Node Slots {slot}",
+    "metricName.metricChargeRate": "Charge Rate {charge}",
+    "metricName.metricHp": "Max Health {hp}",
+    "metricName.metricLevel": "Level {lvl}",
+    "metricName.fighterHp": "Max Health {hp}",
+    "metricName.metricHealth": "Health {hp}",
+    "metricName.metricEquipment": "Equipment Slots",
     // What each metric means (no numbers: the metric shows those)
     "metricTip.metricCharge":
       "How much {charge} the node needs to fire. Equipment charges the nodes touching it.",
@@ -74,16 +91,20 @@ const STRINGS = {
     "metricTip.metricHp":
       "How much {hp} this equipment adds to the max of the fighter holding it.",
     "metricTip.metricLevel":
-      "The node's {lvl}. Each {lvl} adds the upgrade bonus to its effects.",
+      "The node's {lvl}. Each {lvl} adds the upgrade bonus to its effects. Drop a matching node of the same level on it to upgrade it.",
     "metricTip.fighterHp":
       "Max {hp}: the base, plus what each equipped piece adds.",
+    "metricTip.metricHealth":
+      "This fighter's {hp} right now, out of its max. At 0 it is defeated. Shield counters block damage first.",
     "metricTip.metricEquipment":
       "How many pieces of equipment this fighter can hold.",
-    tipUpgrade: "Drop a matching node of the same level on it to upgrade",
 
     // Status counters (battle only)
     "status.shield": "Shield",
     "statusTip.shield": "Each counter blocks 1 damage, then is used up.",
+    "status.focus": "Focus",
+    "statusTip.focus":
+      "Each counter makes this fighter's next Attack deal {percent}% more damage, then is used up.",
     statusCount: "{n} counters",
 
     // Rarities
@@ -100,7 +121,7 @@ const STRINGS = {
     "encounterTip.lootCarcass": "Take one of {options} {nodeRarity} nodes.",
     "encounterAction.lootCarcass": "Search",
     "encounter.travelingMerchant": "Traveling Merchant",
-    "encounterTip.travelingMerchant": "Gain {count} random equipment.",
+    "encounterTip.travelingMerchant": "Choose one of {options} equipment.",
     "encounterAction.travelingMerchant": "Trade",
     "encounter.intenseTraining": "Intense Training",
     "encounterTip.intenseTraining":
@@ -118,6 +139,7 @@ const STRINGS = {
     "effect.shield": "Shield",
     "effect.heal": "Heal",
     "effect.strengthen": "Strengthen",
+    "effect.strengthenAll": "Strengthen All",
     // What each effect does (no numbers: the effect row shows those)
     "effectTip.attack":
       "Deals damage to the first enemy still standing. Shield counters block it first.",
@@ -126,14 +148,19 @@ const STRINGS = {
     "effectTip.heal": "Restores {hp} to this fighter, never above its max.",
     "effectTip.strengthen":
       "Every Attack on this node deals that much more damage, for the rest of the battle. Stacks.",
+    "effect.focus": "Focus",
+    "effectTip.focus":
+      "Gives this fighter focus counters. Each makes its next Attack deal {percent}% more damage, then is used up.",
+    "effectTip.strengthenAll":
+      "Every Attack on all of this fighter's nodes deals that much more damage, for the rest of the battle. Stacks.",
 
     // Nodes
     "node.redgrassblade": "Redgrass Blade",
     "node.stalkclub": "Stalk Club",
-    "node.guard": "Guard",
-    "node.mend": "Mend",
-    "node.spin": "Spin",
     "node.claw": "Claw",
+    "node.bite": "Bite",
+    "node.block": "Block",
+    "node.battlestance": "Battle Stance",
   },
 };
 

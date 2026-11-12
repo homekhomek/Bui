@@ -4,13 +4,15 @@ import { t } from '../translate.js';
 import { chargeAt, runBattle } from '../game/battle.js';
 import { useVisualQueue } from '../game/visualQueue.js';
 import FighterCard from './FighterCard.jsx';
+import { playBattleEvent } from './particles/battleEffects.js';
+import { clearParticles } from './particles/particles.js';
 
 const RESULT = { player: 'victory', enemy: 'defeat', draw: 'draw' };
 
 function Button({ active, ...props }) {
   return (
     <button
-      className={`px-4 py-1 rounded-lg ${active ? 'bg-mint' : 'bg-haze hover:bg-mist'}`}
+      className={`px-4 py-1 rounded-tile ${active ? 'bg-mint' : 'bg-haze hover:bg-mist'}`}
       {...props}
     />
   );
@@ -21,7 +23,8 @@ function Button({ active, ...props }) {
 // seed: the battle's own seed (derived from the run seed), for random effects.
 export default function BattleScreen({ teams, seed, onBack }) {
   const battle = useMemo(() => runBattle(teams, seed), [teams, seed]);
-  const vq = useVisualQueue(battle);
+  // Particles and hit-shake play as playback reaches each event.
+  const vq = useVisualQueue(battle, { onEvent: (e, state) => playBattleEvent(e, state, vq.speed) });
   const animMs = PLAYBACK.moveAnimMs / vq.speed;
   // Charge is drawn at the exact playback time, so it fills smoothly.
   const side = (team) =>
@@ -46,7 +49,9 @@ export default function BattleScreen({ teams, seed, onBack }) {
         </div>
       </div>
 
-      {vq.state.winner && <h2 className="text-4xl">{t(RESULT[vq.state.winner])}</h2>}
+      {/* The result's space is kept from the start (hidden until there is
+          one), so it appearing doesn't shift the fighters. */}
+      <h2 className={`text-4xl ${vq.state.winner ? '' : 'invisible'}`}>{t(RESULT[vq.state.winner ?? 'player'])}</h2>
 
       <div className="flex flex-wrap justify-center gap-2">
         {vq.playing ? (
@@ -54,8 +59,21 @@ export default function BattleScreen({ teams, seed, onBack }) {
         ) : (
           <Button onClick={vq.play}>{t('play')}</Button>
         )}
-        <Button onClick={vq.restart}>{t('restart')}</Button>
-        <Button onClick={vq.skip} disabled={vq.done}>
+        <Button
+          onClick={() => {
+            clearParticles();
+            vq.restart();
+          }}
+        >
+          {t('restart')}
+        </Button>
+        <Button
+          onClick={() => {
+            clearParticles();
+            vq.skip();
+          }}
+          disabled={vq.done}
+        >
           {t('skip')}
         </Button>
       </div>
@@ -69,7 +87,7 @@ export default function BattleScreen({ teams, seed, onBack }) {
       </div>
 
       {/* The result is already decided, so the player can move on any time */}
-      <button onClick={() => onBack(battle.winner)} className="px-8 py-2 rounded-lg bg-rose hover:bg-dusty">
+      <button onClick={() => onBack(battle.winner)} className="px-8 py-2 rounded-tile bg-rose hover:bg-dusty">
         {t('continue')}
       </button>
     </div>

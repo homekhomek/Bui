@@ -1,8 +1,9 @@
 // A run: one seeded playthrough. Pure functions, no React.
 //
-// RUN.enemyCount battles; every RUN.bossEvery-th is against a boss. Between two
-// battles come RUN.encountersBetween encounters, each a choice between
-// RUN.encounterChoices encounters (see encounters.js).
+// RUN.enemyCount battles; every RUN.bossEvery-th is against a boss. Before the
+// first battle come RUN.encountersBefore encounters, and between two battles
+// RUN.encountersBetween, each a choice between RUN.encounterChoices encounters
+// (see encounters.js).
 //
 // Run: { seed, enemies, stage, loadout, encounter, battle, over }
 //   seed       every random thing in the run is derived from it (see random.js)
@@ -17,20 +18,20 @@
 // Random rolls are derived per purpose (enemies, encounter choices, encounter
 // actions, battles), so a seed replays the same run.
 
-import { ENCOUNTERS, ENEMIES, FIGHTER_TEMPLATES, RUN } from '../data.js';
+import { ENCOUNTERS, ENEMIES, RUN } from '../data.js';
 import { clearEncounterItems, clearFloating, createLoadout, returnSlot, slotNode } from './edit.js';
 import { canUseEncounter, encounterType, rollEncounterChoice } from './encounters.js';
+import { createFighter } from './fighter.js';
 import { createRng, deriveSeed } from './random.js';
 
-// Fighter template ids -> team format ({ template, equipment, nodes }).
-export const templateTeam = (ids) =>
-  ids.map((id) => {
-    const { equipment, nodes } = structuredClone(FIGHTER_TEMPLATES[id]);
-    return { template: id, equipment, nodes };
-  });
+// Fighter template ids -> a team: a fresh copy of each (see createFighter).
+export const templateTeam = (ids) => ids.map(createFighter);
 
 // Battle i (0-based) is a boss battle every RUN.bossEvery battles.
 export const isBossStage = (i) => (i + 1) % RUN.bossEvery === 0;
+
+// How many encounters come before battle `stage`.
+export const encountersBefore = (stage) => (stage === 0 ? RUN.encountersBefore : RUN.encountersBetween);
 
 function rollEnemies(seed) {
   const rng = createRng(deriveSeed(seed, 'enemies'));
@@ -44,21 +45,22 @@ function rollEnemies(seed) {
 
 const newEncounter = (run, stage, index) => ({
   index,
-  options: rollEncounterChoice(run.seed, stage, index, index === 0 && isBossStage(stage - 1)),
+  options: rollEncounterChoice(run.seed, stage, index, index === 0 && stage > 0 && isBossStage(stage - 1)),
   picked: null,
   used: false,
 });
 
 export function createRun(seed) {
-  return {
+  const run = {
     seed,
     enemies: rollEnemies(seed),
     stage: 0,
     loadout: createLoadout(templateTeam(RUN.startingTeam)),
-    encounter: null, // the first battle comes right away
+    encounter: null,
     battle: null,
     over: null,
   };
+  return { ...run, encounter: encountersBefore(0) > 0 ? newEncounter(run, 0, 0) : null };
 }
 
 // Fight this stage's enemy. Anything floating is lost.
@@ -81,7 +83,7 @@ export function finishBattle(run, winner) {
   if (winner !== 'player') return { ...done, over: 'lost' };
   if (run.stage + 1 >= run.enemies.length) return { ...done, over: 'won' };
   const stage = run.stage + 1;
-  return { ...done, stage, encounter: RUN.encountersBetween > 0 ? newEncounter(run, stage, 0) : null };
+  return { ...done, stage, encounter: encountersBefore(stage) > 0 ? newEncounter(run, stage, 0) : null };
 }
 
 // Pick one of the offered encounters. Instant ones act right away.
@@ -108,6 +110,39 @@ export function finishEncounter(run) {
   return {
     ...run,
     loadout,
-    encounter: index < RUN.encountersBetween ? newEncounter(run, run.stage, index) : null,
+    encounter: index < encountersBefore(run.stage) ? newEncounter(run, run.stage, index) : null,
   };
+}
+
+// Encounters move on by themselves once their action is done: right after
+// it, or for an instant encounter (one that hands out things to take) once
+// everything it offered has been taken. Continue is only needed to move on
+// without taking everything.
+export function settleEncounter(run) {
+  const enc = run.encounter;
+  if (!enc?.picked || !enc.used) return run;
+  if ((encounterType(enc.picked).toTake?.(run.loadout) ?? 0) > 0) return run;
+  return finishEncounter(run);
+}
+
+// The run as a line of steps, in order: the encounters before a battle, then
+// the battle, and so on. Each step: { kind: 'battle' | 'encounter', stage, index,
+// boss, enemy (battles: its ENEMIES id), state }. stage = the battle's index, or for an encounter the battle it
+// comes before; index = the encounter's index among those. state: 'complete'
+// (in the past), 'current' (happening now, or up next) or 'future'.
+export function runSteps(run) {
+  const steps = [];
+  const enc = run.encounter;
+  const stateOf = (order) => (order < 0 ? 'complete' : order === 0 ? 'current' : 'future');
+  run.enemies.forEach((_, stage) => {
+    for (let index = 0; index < encountersBefore(stage); index++) {
+      // Encounters of the current stage: done once there is no encounter left.
+      const order = stage !== run.stage ? stage - run.stage : enc ? index - enc.index : -1;
+      steps.push({ kind: 'encounter', stage, index, boss: false, state: run.over === 'won' ? 'complete' : stateOf(order) });
+    }
+    // This stage's battle is current once its encounters are done.
+    const order = stage !== run.stage ? stage - run.stage : enc ? 1 : 0;
+    steps.push({ kind: 'battle', stage, index: 0, boss: isBossStage(stage), enemy: run.enemies[stage], state: run.over === 'won' ? 'complete' : stateOf(order) });
+  });
+  return steps;
 }

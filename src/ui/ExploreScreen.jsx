@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { EDIT, NODES, RUN } from '../data.js';
+import { EDIT, EXPLORE, NODES, RUN_DISPLAY } from '../data.js';
 import { t } from '../translate.js';
 import {
   areaWidths,
@@ -16,16 +16,15 @@ import {
   putInSlot,
   upgradeNode,
 } from '../game/edit.js';
-import { isBossStage } from '../game/run.js';
 import { canUpgrade } from '../game/effects.js';
 import { cellsAt } from '../game/inventory.js';
 import { EditContext } from './editContext.js';
 import { useTooltipControls } from './tooltip/Tooltip.jsx';
-import { EquipmentPiece, NodeShape, STEP } from './Inventory.jsx';
+import { EquipmentPiece, NodeShape, step } from './Inventory.jsx';
 import FighterCard from './FighterCard.jsx';
 import FloatingItem from './FloatingItem.jsx';
 import EffectRow from './EffectRow.jsx';
-import { EncounterCard, EncounterPanel } from './Encounter.jsx';
+import { Button, EncounterCard, EncounterInfo, EncounterStage } from './Encounter.jsx';
 
 // Explore / edit phase, between battles: encounters (pick one of the cards,
 // then do it), and arranging the fighters' inventories. Things gained float
@@ -45,7 +44,7 @@ export default function ExploreScreen({ run, setLoadout, onPick, onUse, onFinish
   const tooltips = useTooltipControls();
 
   // A press on a piece: { uid, def, kind }. It only becomes a real drag
-  // (dragActive) once the pointer travels EDIT.dragThresholdPx; released
+  // (dragActive) once the pointer travels EDIT.dragThreshold; released
   // before that, it's a click, which selects the piece instead.
   const [drag, setDrag] = useState(null);
   const [dragActive, setDragActive] = useState(false);
@@ -60,8 +59,8 @@ export default function ExploreScreen({ run, setLoadout, onPick, onUse, onFinish
     for (const [area, { el }] of areas.current) {
       if (!el.isConnected) continue;
       const r = el.getBoundingClientRect();
-      const col = Math.round((d.x - d.grabX - r.left) / STEP);
-      const slot = Math.round((d.y - d.grabY - r.top) / STEP);
+      const col = Math.round((d.x - d.grabX - r.left) / step());
+      const slot = Math.round((d.y - d.grabY - r.top) / step());
       if (col !== 0 || slot < 0 || slot >= maxEquipment(l, area)) continue;
       const drop = equipmentDrop(l, d.uid, area, slot);
       // Hovering its own slot: a valid spot that changes nothing.
@@ -94,8 +93,8 @@ export default function ExploreScreen({ run, setLoadout, onPick, onUse, onFinish
     for (const [area, { el, colOffset }] of areas.current) {
       if (!el.isConnected) continue;
       const r = el.getBoundingClientRect();
-      const x = Math.round((left - r.left) / STEP) - colOffset;
-      const y = Math.round((top - r.top) / STEP);
+      const x = Math.round((left - r.left) / step()) - colOffset;
+      const y = Math.round((top - r.top) / step());
       if (!inBounds(areaWidths(loadoutRef.current, area), d.def, x, y)) continue;
       return {
         area,
@@ -166,7 +165,7 @@ export default function ExploreScreen({ run, setLoadout, onPick, onUse, onFinish
       const d = dragInfo.current;
       Object.assign(d, { x: e.clientX, y: e.clientY });
       if (!active) {
-        if (Math.hypot(d.x - d.startX, d.y - d.startY) < EDIT.dragThresholdPx) return;
+        if (Math.hypot(d.x - d.startX, d.y - d.startY) < EDIT.dragThreshold) return;
         activate();
       }
       placeFloat();
@@ -235,46 +234,65 @@ export default function ExploreScreen({ run, setLoadout, onPick, onUse, onFinish
 
   return (
     <EditContext.Provider value={ctx}>
-      <div ref={rootRef} className="flex flex-col items-center gap-6">
-        <h1 className="text-4xl">{t(encounter ? 'encounterTitle' : 'exploreTitle')}</h1>
-        <p className="text-slate">
-          {t('battleProgress', { n: run.stage + 1, total: run.enemies.length })}
-          {isBossStage(run.stage) && ` · ${t('bossBattle')}`}
-          {encounter && ` · ${t('encounterProgress', { n: encounter.index + 1, total: RUN.encountersBetween })}`}
-        </p>
+      <div ref={rootRef} className="w-full flex flex-col items-center" style={{ gap: EXPLORE.fightersGapPx }}>
+        {/* The top area, decoupled from the team below: it has a fixed height,
+            so whatever comes and goes in it (text, encounters, floating items)
+            never moves the fighters (or slides their nodes). Short and the
+            full width of the window (lined up with the run display), in three
+            columns; the middle one is centered and the sides share the rest:
+              upper left  what this is (the picked encounter)
+              center      things to interact with: encounter cards, things to
+                          take, an encounter's slot, things gained
+              right       Leave / Continue (Prepare's Fight is in the center),
+                          vertically centered */}
+        <div
+          className="relative z-10 shrink-0 w-full grid items-stretch"
+          style={{
+            height: EXPLORE.topAreaPx,
+            gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr)',
+            columnGap: EXPLORE.topGapPx,
+            paddingInline: RUN_DISPLAY.sidePx + RUN_DISPLAY.paddingXPx,
+          }}
+        >
+          <div className="flex flex-col items-start justify-start text-left" style={{ maxWidth: EXPLORE.infoMaxWidthPx }}>
+            {encounter?.picked && <EncounterInfo encounter={encounter} loadout={loadout} />}
+          </div>
 
-        {/* The encounter: a choice of cards, or the one picked */}
-        {encounter && !encounter.picked && (
-          <>
-            <p>{t('chooseEncounter')}</p>
-            <div className="flex flex-wrap items-start justify-center gap-6">
-              {encounter.options.map((id, i) => (
+          <div className="flex items-center justify-center" style={{ gap: EXPLORE.topGapPx }}>
+            {encounter && !encounter.picked &&
+              encounter.options.map((id, i) => (
                 <EncounterCard key={`${encounter.index}-${i}`} id={id} index={i} onPick={() => onPick(id)} />
               ))}
-            </div>
-          </>
-        )}
-        {encounter?.picked && <EncounterPanel encounter={encounter} loadout={loadout} onUse={onUse} onFinish={onFinish} />}
-        {!encounter && <p>{t('exploreIntro')}</p>}
-
-        {/* Things gained, floating above the fighter */}
-        {zone('offer').length > 0 && (
-          <div className="flex flex-wrap items-center justify-center gap-10" style={{ minHeight: STEP * 2 }}>
+            {encounter?.picked && <EncounterStage encounter={encounter} loadout={loadout} onUse={onUse} />}
+            {/* Prepare (before each fight): the heading and Fight, in the middle */}
+            {!encounter && (
+              <div className="flex flex-col items-center" style={{ gap: EXPLORE.topGapPx }}>
+                <h1 className="text-2xl leading-tight">{t('exploreTitle')}</h1>
+                <button onClick={onFight} className="px-8 py-2 rounded-tile bg-rose hover:bg-dusty text-lg">
+                  {t('fight')}
+                </button>
+              </div>
+            )}
+            {/* Things gained */}
             {zone('offer').map((n, i) => (
               <FloatingItem key={n.uid} node={n} index={i} />
             ))}
           </div>
-        )}
+
+          <div className="flex items-center justify-end">
+            {encounter?.picked && (
+              <Button primary onClick={onFinish}>
+                {t(encounter.used ? 'continue' : 'leave')}
+              </Button>
+            )}
+          </div>
+        </div>
 
         {/* Fighters, with bumped / removed nodes floating off to the right.
             The overflow is positioned outside the flow so the fighter stays centered. */}
         <div className="relative flex flex-wrap justify-center gap-6">
           {loadout.fighters.map((f, i) => (
-            <FighterCard
-              key={i}
-              area={i}
-              fighter={{ id: i, def: f.template, maxEquipment: f.maxEquipment, equipment: f.equipment, nodes: f.nodes }}
-            />
+            <FighterCard key={i} area={i} fighter={f} />
           ))}
           <div className="absolute left-full top-0 ml-10 flex flex-col items-start gap-6">
             {zone('overflow').map((n, i) => (
@@ -282,17 +300,11 @@ export default function ExploreScreen({ run, setLoadout, onPick, onUse, onFinish
             ))}
           </div>
         </div>
-
-        {!encounter && (
-          <button onClick={onFight} className="px-8 py-2 rounded-lg bg-rose hover:bg-dusty text-lg">
-            {t('fight')}
-          </button>
-        )}
       </div>
 
       {/* The piece being dragged follows the pointer */}
       {drag && dragActive && (
-        <div ref={floatRef} className="fixed left-0 top-0 z-20 pointer-events-none">
+        <div ref={floatRef} className="fixed left-0 top-0 z-45 pointer-events-none">
           {drag.kind === 'effect' ? (
             <EffectRow effect={loadout.floating.find((n) => n.uid === drag.uid)?.effect} />
           ) : drag.kind === 'equipment' ? (

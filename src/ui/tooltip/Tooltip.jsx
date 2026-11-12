@@ -21,7 +21,7 @@ import { TOOLTIP_TYPES } from './tooltipTypes.jsx';
 
 const TooltipContext = createContext(null);
 
-const boxClass = 'fixed z-50 text-left rounded-lg border-stroke border-dusk bg-blush px-4 py-2';
+const boxClass = 'fixed z-50 text-left rounded-panel border-stroke border-dusk bg-blush px-4 py-2';
 
 // Place a tooltip box to the right of rect; flip left / clamp to stay on screen.
 function place(box, rect) {
@@ -111,7 +111,7 @@ export function TooltipProvider({ children }) {
     <TooltipContext.Provider value={value}>
       {children}
       {Pinned && (
-        <div ref={pinBoxRef} className={boxClass} style={{ maxWidth: TOOLTIP.maxWidthPx }}>
+        <div ref={pinBoxRef} className={boxClass} style={{ minWidth: TOOLTIP.minWidthPx, maxWidth: TOOLTIP.maxWidthPx }}>
           <Pinned {...pinned.data} />
         </div>
       )}
@@ -120,6 +120,7 @@ export function TooltipProvider({ children }) {
           ref={boxRef}
           className={`${boxClass} pointer-events-none`}
           style={{
+            minWidth: TOOLTIP.minWidthPx,
             maxWidth: TOOLTIP.maxWidthPx,
             opacity: visible ? 1 : 0,
             transition: visible ? 'none' : `opacity ${TOOLTIP.fadeOutMs}ms ease-out`,

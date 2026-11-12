@@ -1,12 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { ADMIN, INVENTORY, LIMITS } from '../data.js';
 
-const { shapeCellPx } = ADMIN;
-const STEP = shapeCellPx + INVENTORY.gapPx;
 
 // maxNodeSize x maxNodeSize grid of tiles. Press on a tile to toggle it, then
 // drag to paint (or erase) more. setShape takes an updater: (shape) => shape.
 export default function ShapeEditor({ shape, color, setShape }) {
+  const { shapeCellPx } = ADMIN;
+  const STEP = shapeCellPx + INVENTORY.gapPx;
   const size = LIMITS.maxNodeSize;
   const on = new Set(shape.map(([x, y]) => `${x},${y}`));
   const painting = useRef(null); // true = adding tiles, false = erasing
@@ -60,7 +60,7 @@ export default function ShapeEditor({ shape, color, setShape }) {
           <div
             key={i}
             data-cell={`${x},${y}`}
-            className={`absolute rounded cursor-pointer border-stroke ${filled ? 'border-dusk' : 'border-transparent bg-haze hover:bg-mist'}`}
+            className={`absolute rounded-tile cursor-pointer border-stroke ${filled ? 'border-dusk' : 'border-transparent bg-haze hover:bg-mist'}`}
             style={{
               width: shapeCellPx,
               height: shapeCellPx,

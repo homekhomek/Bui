@@ -174,12 +174,12 @@ export default function AdminScreen() {
           {unchanged ? a('upToDate') : a('unexported')} · {a('exportHint')}
         </span>
         {saveState === 'failed' && (
-          <span className="rounded-lg border-stroke border-dashed border-dusk bg-peach px-4 py-2 select-text">
+          <span className="rounded-panel border-stroke border-dashed border-dusk bg-peach px-4 py-2 select-text">
             {a('saveFailed', { error: saveError })}
           </span>
         )}
         {errors.length > 0 && (
-          <div className="flex flex-col items-center rounded-lg border-stroke border-dashed border-dusk bg-peach px-4 py-2">
+          <div className="flex flex-col items-center rounded-panel border-stroke border-dashed border-dusk bg-peach px-4 py-2">
             <span>{a('errorsTitle')}</span>
             {errors.map((e, i) => (
               <button
@@ -204,7 +204,7 @@ export default function AdminScreen() {
           <button
             key={k.id}
             onClick={() => setTab(k.id)}
-            className={`px-6 py-1 rounded-lg border-stroke ${tab === k.id ? 'bg-mist' : 'bg-haze hover:bg-mist'} ${
+            className={`px-6 py-1 rounded-tile border-stroke ${tab === k.id ? 'bg-mist' : 'bg-haze hover:bg-mist'} ${
               tab === k.id || errorKeys[k.id].size ? 'border-dusk' : 'border-transparent'
             } ${errorKeys[k.id].size ? 'border-dashed' : ''}`}
           >

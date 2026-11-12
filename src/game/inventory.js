@@ -10,25 +10,34 @@ export function rowWidths(equipment) {
   return equipment.map((id) => EQUIPMENT[id].nodeSlots);
 }
 
+// The cells a shape (a list of [dx, dy] offsets) covers when placed at (x, y).
+export const shapeCells = (shape, x, y) => shape.map(([dx, dy]) => [x + dx, y + dy]);
+
 export function cellsAt(def, x, y) {
-  return NODES[def].shape.map(([dx, dy]) => [x + dx, y + dy]);
+  return shapeCells(NODES[def].shape, x, y);
 }
 
-function occupiedBy(nodes, ignoreUid) {
-  const taken = new Set();
-  for (const n of nodes) {
-    if (n.uid === ignoreUid) continue;
-    for (const [cx, cy] of cellsAt(n.def, n.x, n.y)) taken.add(`${cx},${cy}`);
-  }
-  return taken;
+// Grid cells as Set keys, for "is this cell taken" checks.
+export const cellKey = ([x, y]) => `${x},${y}`;
+export const cellSet = (cells) => new Set(cells.map(cellKey));
+
+// The cells taken by nodes ({ uid, def, x, y }), leaving out node ignoreUid.
+export function takenCells(nodes, ignoreUid) {
+  return cellSet(nodes.filter((n) => n.uid !== ignoreUid).flatMap((n) => cellsAt(n.def, n.x, n.y)));
+}
+
+// The one placement rule, used by the game and the admin alike: every cell is
+// inside the grid (rows of `widths` tiles) and none of them is in `taken`.
+export function cellsFit(widths, cells, taken = new Set()) {
+  return (
+    cells.length > 0 &&
+    cells.every(([x, y]) => y >= 0 && y < widths.length && x >= 0 && x < widths[y] && !taken.has(cellKey([x, y])))
+  );
 }
 
 // Can `node` sit at (x, y), ignoring its own current position?
 export function fits(widths, nodes, node, x, y) {
-  const taken = occupiedBy(nodes, node.uid);
-  return cellsAt(node.def, x, y).every(
-    ([cx, cy]) => cy >= 0 && cy < widths.length && cx >= 0 && cx < widths[cy] && !taken.has(`${cx},${cy}`)
-  );
+  return cellsFit(widths, cellsAt(node.def, x, y), takenCells(nodes, node.uid));
 }
 
 // Rows in which the node touches the equipment column.

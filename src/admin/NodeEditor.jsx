@@ -6,9 +6,9 @@ import { t } from '../translate.js';
 import { NodeShape } from '../ui/Inventory.jsx';
 import { NodeTooltip } from '../ui/tooltip/tooltipTypes.jsx';
 import ShapeEditor from './ShapeEditor.jsx';
-import { Button, ColorPicker, Field, Label, NumberInput, RarityPicker, inputClass } from './controls.jsx';
-import { KINDS, NODE_ICONS, download } from './entities.js';
-import { nodeArtTemplate } from './nodeArt.js';
+import { ArtFile, Button, ColorPicker, Field, Label, NumberInput, RarityPicker, inputClass } from './controls.jsx';
+import { KINDS, NODE_ICONS } from './entities.js';
+import { nodeArtTemplate } from './artTemplates.js';
 import { a } from './strings.js';
 
 function EffectEditor({ effect, index, count, update, move, remove }) {
@@ -109,13 +109,17 @@ export default function NodeEditor({ draft, update }) {
         <ShapeEditor shape={draft.shape} color={draft.color} setShape={(fn) => update((d) => ({ shape: fn(d.shape) }))} />
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => update(() => ({ shape: [] }))}>{a('clearShape')}</Button>
-          <Button
-            disabled={!node.shape.length}
-            onClick={() => download(`${node.id || 'node'}-template.svg`, nodeArtTemplate(node), 'image/svg+xml')}
-          >
-            {a('artTemplate')}
-          </Button>
         </div>
+      </Field>
+
+      <Field label={a('fieldArt')}>
+        <ArtFile
+          folder="nodes"
+          name={draft.id}
+          build={() => nodeArtTemplate(node)}
+          disabled={!node.shape.length}
+          onCreated={(icon) => update(() => ({ icon }))}
+        />
       </Field>
 
       <Field label={a('preview')}>
@@ -133,7 +137,7 @@ export default function NodeEditor({ draft, update }) {
           <span className="text-slate">{a('noTiles')}</span>
         )}
         <span className="text-slate">{a('tooltipPreview')}</span>
-        <div className="rounded-lg border-stroke border-dusk bg-blush px-4 py-2" style={{ maxWidth: TOOLTIP.maxWidthPx }}>
+        <div className="rounded-panel border-stroke border-dusk bg-blush px-4 py-2" style={{ maxWidth: TOOLTIP.maxWidthPx }}>
           <NodeTooltip def={node.id} node={preview} name={draft.name} level={previewLevel} />
         </div>
       </Field>

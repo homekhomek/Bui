@@ -22,6 +22,7 @@ import * as prettierBabel from 'prettier/plugins/babel';
 import * as prettierEstree from 'prettier/plugins/estree';
 import { ADMIN, ENCOUNTERS, ENEMIES, EQUIPMENT, FIGHTER_TEMPLATES, KEYWORDS, LIMITS, NODES, RARITIES, RUN } from '../data.js';
 import { ENCOUNTER_TYPES } from '../game/encounters.js';
+import { cellSet, cellsFit, shapeCells } from '../game/inventory.js';
 import { t } from '../translate.js';
 import { a } from './strings.js';
 
@@ -268,7 +269,7 @@ export const nodeLevel = (n) => (str(n.level).trim() === '' ? 1 : num(n.level));
 // Cells a template's starting node covers, or [] if its node no longer exists.
 export function templateNodeCells(n, ctx) {
   const nd = resolve(ctx.nodes, n.node);
-  return nd ? normalizeShape(nd.shape).map(([dx, dy]) => [n.x + dx, n.y + dy]) : [];
+  return nd ? shapeCells(normalizeShape(nd.shape), n.x, n.y) : [];
 }
 
 // Row widths of a template's inventory (0 for deleted equipment).
@@ -361,9 +362,8 @@ const templates = {
       const level = nodeLevel(n);
       if (!Number.isInteger(level) || level < 1) err('errLevel', { n: i + 1 });
       const cells = templateNodeCells(n, ctx);
-      const inside = ([x, y]) => y >= 0 && y < widths.length && x >= 0 && x < widths[y] && !taken.has(`${x},${y}`);
-      if (!cells.length || !cells.every(inside)) err('errTemplateNode', { node: nd.id, x: n.x, y: n.y });
-      cells.forEach(([x, y]) => taken.add(`${x},${y}`));
+      if (!cellsFit(widths, cells, taken)) err('errTemplateNode', { node: nd.id, x: n.x, y: n.y });
+      for (const k of cellSet(cells)) taken.add(k);
     });
   },
 

@@ -17,17 +17,21 @@
 //   trigger { fighter, node }                  node full: charge resets to 0
 //   move    { fighter, node, x, spawn? }       node slid left; spawn = used node
 //                                              re-entering from the right
-//   damage  { source, target, hp }             hp actually lost
-//   status  { target, status, amount }         status counters gained (+) or
-//                                              used up (-); see STATUSES
-//   heal    { target, amount }                 hp actually restored
-//   boost   { fighter, node, keyword, amount } the node's effects of keyword
-//                                              get +amount for the rest of the
-//                                              battle (see KEYWORDS.boosts)
+//   damage  { source, node, target, hp }       hp actually lost (node: the
+//                                              node whose attack dealt it)
+//   status  { target, node?, status, amount }  status counters gained (+) or
+//                                              used up (-); see STATUSES.
+//                                              node: the node that gave them
+//   heal    { target, node, amount }           hp actually restored
+//   boost   { fighter, node, by, effect, keyword, amount }  node's effects of
+//                                              keyword get +amount for the rest
+//                                              of the battle (see KEYWORDS.boosts);
+//                                              by = the node whose effect (a
+//                                              KEYWORDS id) caused it
 //   defeat  { fighter }
 //   end     { winner }                         'player' | 'enemy' | 'draw'
 
-import { BATTLE, EQUIPMENT, FIGHTER_TEMPLATES, KEYWORDS, NODES } from '../data.js';
+import { BATTLE, EQUIPMENT, KEYWORDS, NODES, STATUSES } from '../data.js';
 import { effectValue, nodeEffects } from './effects.js';
 import { maxHp } from './fighter.js';
 import { settle, spawnX, touchingRows, unboundedWidths } from './inventory.js';
@@ -39,22 +43,22 @@ export function createBattleState(teams) {
   const fighters = [];
   for (const team of ['player', 'enemy']) {
     teams[team].forEach((loadout, i) => {
-      const def = FIGHTER_TEMPLATES[loadout.template];
+      // The team's fighters are copies (see createFighter): template, sprite,
+      // baseHp, maxEquipment, ... carry over as they are.
+      const { equipment: all, nodes, ...fighter } = structuredClone(loadout);
       const id = `${team}-${i}`;
-      const maxEquipment = loadout.maxEquipment ?? def.maxEquipment;
-      const equipment = loadout.equipment.slice(0, maxEquipment);
-      const hp = maxHp(def.id, equipment);
+      const equipment = all.slice(0, fighter.maxEquipment);
+      const hp = maxHp(fighter, equipment);
       fighters.push({
+        ...fighter,
         id,
-        def: def.id,
         team,
         hp,
         maxHp: hp,
         statuses: {}, // status id -> count, e.g. { shield: 5 }; zero counts are removed
         alive: true,
-        maxEquipment,
         equipment,
-        nodes: loadout.nodes.map((n, j) => ({
+        nodes: nodes.map((n, j) => ({
           uid: `${id}-n${j}`,
           def: n.node,
           level: n.level ?? 1,
@@ -168,22 +172,33 @@ export function runBattle(teams, seed) {
     }
   };
 
-  // Run one of node n's effects. Keywords: attack, shield, heal, strengthen
-  // (see KEYWORDS).
+  // Run one of node n's effects. Keywords: attack, shield, heal, strengthen,
+  // strengthenAll (see KEYWORDS).
   const resolveEffect = (f, n, effect) => {
     const value = effectValue(effect, n.level, n.boosts);
-    if (KEYWORDS[effect.keyword].boosts) {
+    const kw = KEYWORDS[effect.keyword];
+    if (kw.boosts) {
       // Boost keywords (strengthen, ...): this node's effects of that keyword
-      // get +value from now on, including later ones in this same firing.
-      if (value !== 0) emit({ type: 'boost', fighter: f.id, node: n.uid, keyword: KEYWORDS[effect.keyword].boosts, amount: value });
+      // (or, with allNodes, every node's of the fighter) get +value from now
+      // on, including later ones in this same firing.
+      if (value === 0) return;
+      for (const target of kw.allNodes ? f.nodes : [n]) {
+        emit({ type: 'boost', fighter: f.id, node: target.uid, by: n.uid, effect: effect.keyword, keyword: kw.boosts, amount: value });
+      }
     } else if (effect.keyword === 'attack') {
       const target = state.fighters.find((o) => o.team !== f.team && o.alive);
       if (!target) return;
+      // Focus: the attacker's next attack deals more (rounded), using up one counter.
+      let damage = value;
+      if ((f.statuses.focus ?? 0) > 0) {
+        damage = Math.round(value * (1 + STATUSES.focus.damageBonus));
+        emit({ type: 'status', target: f.id, status: 'focus', amount: -1 });
+      }
       // Shield counters block damage first, one each, and are used up.
-      const blocked = Math.min(target.statuses.shield ?? 0, value);
+      const blocked = Math.min(target.statuses.shield ?? 0, damage);
       if (blocked > 0) emit({ type: 'status', target: target.id, status: 'shield', amount: -blocked });
-      const hp = Math.min(target.hp, value - blocked);
-      emit({ type: 'damage', source: f.id, target: target.id, hp });
+      const hp = Math.min(target.hp, damage - blocked);
+      emit({ type: 'damage', source: f.id, node: n.uid, target: target.id, hp });
       if (target.hp <= 0) {
         emit({ type: 'defeat', fighter: target.id });
         updateRates(target); // a defeated fighter stops charging
@@ -191,10 +206,10 @@ export function runBattle(teams, seed) {
       }
     } else if (KEYWORDS[effect.keyword].status) {
       // Status keywords (shield, ...): gain that many counters.
-      if (value > 0) emit({ type: 'status', target: f.id, status: KEYWORDS[effect.keyword].status, amount: value });
+      if (value > 0) emit({ type: 'status', target: f.id, node: n.uid, status: KEYWORDS[effect.keyword].status, amount: value });
     } else if (effect.keyword === 'heal') {
       const amount = Math.min(value, f.maxHp - f.hp);
-      if (amount > 0) emit({ type: 'heal', target: f.id, amount });
+      if (amount > 0) emit({ type: 'heal', target: f.id, node: n.uid, amount });
     }
   };
 

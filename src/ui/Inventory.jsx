@@ -1,15 +1,17 @@
 import { useId, useLayoutEffect, useMemo, useRef } from 'react';
-import { ANIM, EDIT, EQUIPMENT, INVENTORY, NODES, SELECT, STROKE_PX } from '../data.js';
+import { ANIM, CORNERS, EDIT, EQUIPMENT, INVENTORY, NODES, SELECT, UI, uiScale } from '../data.js';
 import { nodeOutlinePath } from './nodeOutline.js';
 import { useEdit, useSlide } from './editContext.js';
 import { useSelectable, useTooltip } from './tooltip/Tooltip.jsx';
 import { equipmentIcon, nodeIcon } from './assets.js';
+import { rowWidths } from '../game/inventory.js';
+import { centerOf, emitParticles } from './particles/particles.js';
 
-const { cellPx, gapPx, tileRadiusPx: radius, equipmentBorderPx, unchargedOpacity } = INVENTORY;
-const { pipRadiusPx, pipGapPx, pipInsetPx } = INVENTORY;
-export const STEP = cellPx + gapPx;
+// Sizes are read at render time: they change with the UI scale (window height).
+// step(): one tile plus the gap to the next.
+export const step = () => INVENTORY.cellPx + INVENTORY.gapPx;
 const color = (name) => `var(--color-${name})`;
-const cell = { width: cellPx, height: cellPx };
+const cellSize = () => ({ width: INVENTORY.cellPx, height: INVENTORY.cellPx });
 
 // Inline style for the selection border's shrink-on animation.
 const selectAnim = {
@@ -28,11 +30,15 @@ export function NodeShape({ def, level = 1, extra, boosts, uid, charge = def.max
   const id = `node-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const svgRef = useRef(null);
   const lastLevel = useRef(level);
-  const outline = useMemo(() => nodeOutlinePath(def.shape, { cellPx, gapPx, radiusPx: radius }), [def]);
+  const scale = uiScale();
+  const outline = useMemo(
+    () => nodeOutlinePath(def.shape, { cellPx: INVENTORY.cellPx, gapPx: INVENTORY.gapPx, radiusPx: CORNERS.tilePx }),
+    [def, scale] // eslint-disable-line react-hooks/exhaustive-deps -- sizes follow the scale
+  );
   const cols = 1 + Math.max(...def.shape.map(([dx]) => dx));
   const rows = 1 + Math.max(...def.shape.map(([, dy]) => dy));
-  const width = cols * STEP - gapPx;
-  const height = rows * STEP - gapPx;
+  const width = cols * step() - INVENTORY.gapPx;
+  const height = rows * step() - INVENTORY.gapPx;
   const unchargedPx = height * (1 - charge / def.maxCharge);
   const [px, py] = def.shape[0];
   const tooltip = useTooltip('node', { def: def.id, level, extra, boosts });
@@ -45,6 +51,8 @@ export function NodeShape({ def, level = 1, extra, boosts, uid, charge = def.max
         [{ scale: 1 }, { scale: EDIT.popScale }, { scale: 1 }],
         { duration: EDIT.popMs, easing: 'ease-out' }
       );
+      // Upgraded: a small green particle burst on it (see PARTICLES).
+      emitParticles('upgrade', { at: centerOf(svgRef.current) });
     }
     lastLevel.current = level;
   }, [level]);
@@ -77,21 +85,21 @@ export function NodeShape({ def, level = 1, extra, boosts, uid, charge = def.max
         {/* Art: drawn on the node's template, so it covers exactly its bounding box */}
         {def.icon && <image href={nodeIcon(def.icon)} x={0} y={0} width={width} height={height} preserveAspectRatio="none" />}
         {/* Uncharged part is washed out; the node fills upward as charge builds */}
-        <rect x={0} y={0} width={width} height={unchargedPx} fill={color('white')} opacity={unchargedOpacity} />
+        <rect x={0} y={0} width={width} height={unchargedPx} fill={color('white')} opacity={INVENTORY.unchargedOpacity} />
         {/* Border: stroke is centered on the path, the clip keeps the inner half */}
-        <path d={outline} fillRule="evenodd" fill="none" stroke={color('dusk')} strokeWidth={STROKE_PX * 2} />
+        <path d={outline} fillRule="evenodd" fill="none" stroke={color('dusk')} strokeWidth={UI.strokePx * 2} />
       </g>
       {/* Level pips in the first tile (none at level 1) */}
       {level > 1 &&
         Array.from({ length: level }, (_, i) => (
           <circle
             key={i}
-            cx={px * STEP + pipInsetPx + pipRadiusPx + i * (pipRadiusPx * 2 + pipGapPx)}
-            cy={py * STEP + pipInsetPx + pipRadiusPx}
-            r={pipRadiusPx}
+            cx={px * step() + INVENTORY.pipInsetPx + INVENTORY.pipRadiusPx + i * (INVENTORY.pipRadiusPx * 2 + INVENTORY.pipGapPx)}
+            cy={py * step() + INVENTORY.pipInsetPx + INVENTORY.pipRadiusPx}
+            r={INVENTORY.pipRadiusPx}
             fill={color('white')}
             stroke={color('dusk')}
-            strokeWidth={STROKE_PX}
+            strokeWidth={UI.strokePx}
           />
         ))}
       {/* Selection border, over the node's own */}
@@ -136,10 +144,10 @@ function GridNode({ node, area, colOffset, animMs }) {
     const el = slideRef.current;
     if (edit || !node.spawns || !el) return;
     el.style.transition = 'none';
-    el.style.left = `${(node.spawnX + colOffset) * STEP}px`;
+    el.style.left = `${(node.spawnX + colOffset) * step()}px`;
     el.getBoundingClientRect(); // commit the jump before animating
     el.style.transition = `left ${animMs}ms ${ANIM.ease}`;
-    el.style.left = `${(node.x + colOffset) * STEP}px`;
+    el.style.left = `${(node.x + colOffset) * step()}px`;
   }, [node.spawns]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
@@ -147,8 +155,8 @@ function GridNode({ node, area, colOffset, animMs }) {
       ref={slideRef}
       className="absolute pointer-events-none"
       style={{
-        left: (node.x + colOffset) * STEP,
-        top: node.y * STEP,
+        left: (node.x + colOffset) * step(),
+        top: node.y * step(),
         transition: edit ? undefined : `left ${animMs}ms ${ANIM.ease}`,
         opacity: dragging ? EDIT.ghostOpacity : 1,
       }}
@@ -179,15 +187,15 @@ export function NodeGrid({ area, widths, rows = widths.length, colOffset = 0, no
     <div
       ref={edit ? (el) => el && edit.registerArea(area, el, colOffset) : undefined}
       className={`relative ${edit ? '' : 'overflow-hidden' /* battle rows run past the edge */}`}
-      style={{ width: cols * STEP - gapPx, height: rows * STEP - gapPx }}
+      style={{ width: cols * step() - INVENTORY.gapPx, height: rows * step() - INVENTORY.gapPx }}
     >
       {children}
       {widths.map((w, y) =>
         Array.from({ length: w }, (_, x) => (
           <div
             key={`${x},${y}`}
-            className="absolute rounded bg-haze"
-            style={{ ...cell, left: (x + colOffset) * STEP, top: y * STEP }}
+            className="absolute rounded-tile bg-haze"
+            style={{ ...cellSize(), left: (x + colOffset) * step(), top: y * step() }}
           />
         ))
       )}
@@ -198,11 +206,11 @@ export function NodeGrid({ area, widths, rows = widths.length, colOffset = 0, no
       {preview?.cells.map(([x, y]) => (
         <div
           key={`p${x},${y}`}
-          className="absolute rounded border-stroke border-dashed border-dusk pointer-events-none"
+          className="absolute rounded-tile border-stroke border-dashed border-dusk pointer-events-none"
           style={{
-            ...cell,
-            left: (x + colOffset) * STEP,
-            top: y * STEP,
+            ...cellSize(),
+            left: (x + colOffset) * step(),
+            top: y * step(),
             backgroundColor: color(preview.bumping ? 'peach' : 'mint'),
             opacity: EDIT.previewOpacity,
           }}
@@ -216,6 +224,8 @@ export function NodeGrid({ area, widths, rows = widths.length, colOffset = 0, no
 // floating in the ether, and as the piece being dragged.
 // data overrides the data.js entry (admin previews of unsaved equipment).
 export function EquipmentPiece({ def, data = EQUIPMENT[def], highlight = false, interactive = true, onPointerDown }) {
+  const line = UI.strokePx;
+  const gap = INVENTORY.equipmentGapPx;
   const tooltip = useTooltip('equipment', { id: def });
   const sel = useSelectable('equipment', { id: def });
   return (
@@ -223,10 +233,11 @@ export function EquipmentPiece({ def, data = EQUIPMENT[def], highlight = false, 
       ref={sel.ref}
       {...(interactive ? tooltip : {})}
       onClick={interactive ? sel.select : undefined}
-      className={`relative rounded-lg border-double border-dusk ${interactive ? 'cursor-pointer' : 'pointer-events-none'}`}
+      className={`relative rounded-tile border-solid border-dusk ${interactive ? 'cursor-pointer' : 'pointer-events-none'}`}
       style={{
-        ...cell,
-        borderWidth: equipmentBorderPx,
+        ...cellSize(),
+        borderWidth: line,
+        padding: gap + line, // the icon sits inside both lines
         backgroundColor: color(data.color),
         touchAction: 'none',
         outline: highlight ? `${EDIT.upgradeOutlinePx}px solid ${color('mint')}` : undefined,
@@ -241,11 +252,13 @@ export function EquipmentPiece({ def, data = EQUIPMENT[def], highlight = false, 
           className="block w-full h-full pointer-events-none"
         />
       )}
+      {/* The double border's inner line */}
+      <div className="absolute rounded-tile border-solid border-dusk pointer-events-none" style={{ inset: gap, borderWidth: line }} />
       {/* Selection border, over the piece's own (outer edge to outer edge) */}
       {interactive && sel.selected && (
         <div
-          className="absolute rounded-lg border-dusk pointer-events-none"
-          style={{ inset: -equipmentBorderPx, borderWidth: SELECT.borderPx, ...selectAnim }}
+          className="absolute rounded-tile border-dusk pointer-events-none"
+          style={{ inset: -line, borderWidth: SELECT.borderPx, ...selectAnim }}
         />
       )}
     </div>
@@ -261,7 +274,7 @@ function EquipmentTile({ item, area, y }) {
     <div
       ref={slideRef}
       className="absolute"
-      style={{ left: 0, top: y * STEP, opacity: edit?.dragUid === item.uid ? EDIT.ghostOpacity : 1 }}
+      style={{ left: 0, top: y * step(), opacity: edit?.dragUid === item.uid ? EDIT.ghostOpacity : 1 }}
     >
       <EquipmentPiece
         def={item.def}
@@ -276,8 +289,8 @@ function EmptySlot({ y }) {
   return (
     <div
       {...tooltip}
-      className="absolute rounded-lg border-stroke border-dashed border-lilac cursor-pointer"
-      style={{ ...cell, left: 0, top: y * STEP }}
+      className="absolute rounded-tile border-stroke border-dashed border-lilac cursor-pointer"
+      style={{ ...cellSize(), left: 0, top: y * step() }}
     />
   );
 }
@@ -287,7 +300,7 @@ function EmptySlot({ y }) {
 export default function Inventory({ area, equipment, maxEquipment, nodes, animMs = 0 }) {
   const edit = useEdit();
   const items = equipment.map((e, i) => (typeof e === 'string' ? { uid: `${area}:${i}`, def: e } : e));
-  const widths = items.map((e) => EQUIPMENT[e.def].nodeSlots);
+  const widths = rowWidths(items.map((e) => e.def));
   const preview = edit?.hover && edit.hover.equipArea === area ? edit.hover : null;
 
   return (
@@ -301,11 +314,11 @@ export default function Inventory({ area, equipment, maxEquipment, nodes, animMs
       {/* Equipment drop preview: mint = lands here, peach = replaces what's here */}
       {preview && (
         <div
-          className="absolute z-10 rounded-lg border-stroke border-dashed border-dusk pointer-events-none"
+          className="absolute z-10 rounded-tile border-stroke border-dashed border-dusk pointer-events-none"
           style={{
-            ...cell,
+            ...cellSize(),
             left: 0,
-            top: preview.slot * STEP,
+            top: preview.slot * step(),
             backgroundColor: color(preview.replacing ? 'peach' : 'mint'),
             opacity: EDIT.previewOpacity,
           }}
