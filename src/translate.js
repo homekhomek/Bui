@@ -153,6 +153,9 @@ const STRINGS = {
       "Gives this fighter focus counters. Each makes its next Attack deal {percent}% more damage, then is used up.",
     "effectTip.strengthenAll":
       "Every Attack on all of this fighter's nodes deals that much more damage, for the rest of the battle. Stacks.",
+    "effect.chargeAdjacent": "Charge Adjacent",
+    "effectTip.chargeAdjacent":
+      "Gives that much {charge} to every node touching this one, except nodes with {charge} effects.",
 
     // Nodes
     "node.redgrassblade": "Redgrass Blade",
@@ -161,6 +164,8 @@ const STRINGS = {
     "node.bite": "Bite",
     "node.block": "Block",
     "node.battlestance": "Battle Stance",
+    "node.cautiousstrike": "Cautious Strike",
+    "node.antenna": "Antenna",
   },
 };
 

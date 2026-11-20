@@ -455,6 +455,15 @@ export const KEYWORDS = {
     boosts: "attack",
     allNodes: true,
   },
+  // Gives value charge to every node sharing a tile edge with this one
+  // (chargesAdjacent), except nodes with a chargeRelated effect.
+  chargeAdjacent: {
+    id: "chargeAdjacent",
+    icon: "charge",
+    color: "cream",
+    chargesAdjacent: true,
+    chargeRelated: true,
+  },
 };
 
 // Charge is always shown as its symbol, never the word ({charge} in strings).
@@ -478,7 +487,8 @@ export const LEVEL = { icon: "lvl" };
 // shield (gain that many shield counters), heal (self), strengthen (this
 // node's attacks deal that much more for the rest of the battle),
 // strengthenAll (every node of the fighter's attacks deal that much more for
-// the rest of the battle).
+// the rest of the battle), chargeAdjacent (every node sharing a tile edge with
+// this one gains that much charge).
 // value at a given level = value + upgradeDelta * (level - 1).
 // A node with any upgradeDelta can be upgraded by dropping another node of the
 // same type and level onto it.
@@ -496,7 +506,7 @@ export const NODES = {
     icon: "redgrassblade",
     effects: [
       { keyword: "attack", value: 8, upgradeDelta: 4 },
-      { keyword: "focus", value: 2, upgradeDelta: 1 },
+      { keyword: "focus", value: 1, upgradeDelta: 1 },
     ],
   },
   stalkclub: {
@@ -530,6 +540,7 @@ export const NODES = {
     maxCharge: 17,
     color: "pink",
     rarity: "common",
+    icon: "bite",
     effects: [{ keyword: "attack", value: 4, upgradeDelta: 2 }],
   },
   block: {
@@ -556,7 +567,36 @@ export const NODES = {
     color: "mauve",
     rarity: "common",
     icon: "battlestance",
-    effects: [{ keyword: "strengthenAll", value: 2, upgradeDelta: 2 }],
+    effects: [
+      { keyword: "focus", value: 2, upgradeDelta: 1 },
+      { keyword: "strengthenAll", value: 1, upgradeDelta: 1 },
+    ],
+  },
+  cautiousstrike: {
+    id: "cautiousstrike",
+    shape: [
+      [0, 0],
+      [0, 1],
+      [1, 1],
+    ],
+    maxCharge: 28,
+    color: "dusty",
+    rarity: "common",
+    effects: [
+      { keyword: "attack", value: 3, upgradeDelta: 1 },
+      { keyword: "shield", value: 3, upgradeDelta: 1 },
+    ],
+  },
+  antenna: {
+    id: "antenna",
+    shape: [
+      [0, 0],
+      [1, 0],
+    ],
+    maxCharge: 14,
+    color: "cream",
+    rarity: "common",
+    effects: [{ keyword: "chargeAdjacent", value: 4, upgradeDelta: 2 }],
   },
 };
 
@@ -591,6 +631,7 @@ export const FIGHTER_TEMPLATES = {
       { node: "claw", x: 2, y: 2 },
       { node: "battlestance", x: 0, y: 2, level: 2 },
       { node: "redgrassblade", x: 0, y: 0 },
+      { node: "antenna", x: 0, y: 1 },
     ],
   },
   mite: {

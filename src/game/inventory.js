@@ -40,6 +40,19 @@ export function fits(widths, nodes, node, x, y) {
   return cellsFit(widths, cellsAt(node.def, x, y), takenCells(nodes, node.uid));
 }
 
+// The other nodes sharing a tile edge with `node` (diagonals don't count).
+export function adjacentNodes(nodes, node) {
+  const around = cellSet(
+    cellsAt(node.def, node.x, node.y).flatMap(([x, y]) => [
+      [x + 1, y],
+      [x - 1, y],
+      [x, y + 1],
+      [x, y - 1],
+    ]),
+  );
+  return nodes.filter((o) => o.uid !== node.uid && cellsAt(o.def, o.x, o.y).some((c) => around.has(cellKey(c))));
+}
+
 // Rows in which the node touches the equipment column.
 export function touchingRows(node) {
   return cellsAt(node.def, node.x, node.y)

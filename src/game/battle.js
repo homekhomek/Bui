@@ -13,7 +13,10 @@
 // reducer as the visual queue, so playback always matches the result.
 //
 // Event types (all carry t = time in seconds):
-//   charge  { fighter, node, charge, rate }    from t, charge grows at rate
+//   charge  { fighter, node, charge, rate, by?, effect? }  from t, charge grows
+//                                              at rate; by = the node whose
+//                                              effect (a KEYWORDS id) gave it
+//                                              (charge adjacent)
 //   trigger { fighter, node }                  node full: charge resets to 0
 //   move    { fighter, node, x, spawn? }       node slid left; spawn = used node
 //                                              re-entering from the right
@@ -34,7 +37,7 @@
 import { BATTLE, EQUIPMENT, KEYWORDS, NODES, STATUSES } from '../data.js';
 import { effectValue, nodeEffects } from './effects.js';
 import { maxHp } from './fighter.js';
-import { settle, spawnX, touchingRows, unboundedWidths } from './inventory.js';
+import { adjacentNodes, settle, spawnX, touchingRows, unboundedWidths } from './inventory.js';
 import { createRng } from './random.js';
 
 const EPSILON = 1e-9; // nodes filling within this many seconds fire together
@@ -185,6 +188,19 @@ export function runBattle(teams, seed) {
       for (const target of kw.allNodes ? f.nodes : [n]) {
         emit({ type: 'boost', fighter: f.id, node: target.uid, by: n.uid, effect: effect.keyword, keyword: kw.boosts, amount: value });
       }
+    } else if (kw.chargesAdjacent) {
+      // Charge adjacent: every node touching this one gains value charge now
+      // (never past full), except nodes with a charge-related effect
+      // (KEYWORDS.chargeRelated). A node this fills fires at this same moment.
+      if (value <= 0) return;
+      for (const target of adjacentNodes(f.nodes, n)) {
+        if (nodeEffects(target).some((e) => KEYWORDS[e.keyword].chargeRelated)) continue;
+        const before = chargeAt(target, state.time);
+        const charge = Math.min(NODES[target.def].maxCharge, before + value);
+        if (charge > before) {
+          emit({ type: 'charge', fighter: f.id, node: target.uid, charge, rate: target.rate, by: n.uid, effect: effect.keyword });
+        }
+      }
     } else if (effect.keyword === 'attack') {
       const target = state.fighters.find((o) => o.team !== f.team && o.alive);
       if (!target) return;
@@ -213,9 +229,13 @@ export function runBattle(teams, seed) {
     }
   };
 
-  // When a charging node will be full (Infinity if it isn't charging).
-  const fullAt = (n) =>
-    n.rate > 0 ? n.chargeT + (NODES[n.def].maxCharge - n.charge) / n.rate : Infinity;
+  // When a node will be full: now if it already is (e.g. charged by another
+  // node), Infinity if it isn't charging.
+  const fullAt = (n) => {
+    const missing = NODES[n.def].maxCharge - chargeAt(n, state.time);
+    if (missing <= EPSILON) return state.time;
+    return n.rate > 0 ? state.time + missing / n.rate : Infinity;
+  };
 
   // Starting positions settle under gravity, then charging begins.
   for (const f of state.fighters) {

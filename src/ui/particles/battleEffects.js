@@ -68,6 +68,16 @@ export function playBattleEvent(event, state, timeScale) {
     case 'heal':
       if (event.node && event.amount > 0) nodeImage('selfRise', event.node, event.target, state, timeScale);
       return;
+    // Charge adjacent: the effect's icon flashes on every node it charges.
+    case 'charge': {
+      if (!event.by) return;
+      const at = centerOf(document.querySelector(`[data-uid="${event.node}"]`));
+      const icon = KEYWORDS[event.effect]?.icon;
+      if (at && icon) {
+        emitParticles('boostFlash', { at, image: { src: effectIcon(icon), width: UI.iconPx, height: UI.iconPx }, timeScale });
+      }
+      return;
+    }
     // Strengthen / strengthen all: the effect's icon flashes on every node it
     // strengthens that has an effect of the boosted keyword (attack); for the
     // rest the boost changes nothing yet, so nothing shows.
